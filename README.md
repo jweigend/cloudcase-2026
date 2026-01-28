@@ -6,6 +6,16 @@ Dieses Projekt beschreibt das Setup eines portablen Big Data Clusters auf 5 Inte
 
 ---
 
+## Dokumentation
+
+| Dokument | Beschreibung |
+|----------|--------------|
+| [README.md](README.md) | Übersicht, Hardware, Netzwerk, Monitoring |
+| [SOLR-SPARK.md](SOLR-SPARK.md) | Solr Cloud, Spark, ZooKeeper Konfiguration |
+| [BAREMETAL-SETUP.md](BAREMETAL-SETUP.md) | Ubuntu Autoinstall & Cloud-Init |
+
+---
+
 ## Hardware-Spezifikation
 
 | Komponente | Spezifikation |
@@ -38,141 +48,27 @@ Dieses Projekt beschreibt das Setup eines portablen Big Data Clusters auf 5 Inte
 
 ---
 
-## Architektur-Konzept
+## Komponenten
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CLOUDKOFFER CLUSTER                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                          │
-│  │ ZooKeeper 1 │  │ ZooKeeper 2 │  │ ZooKeeper 3 │     ZK Ensemble (3 Node) │
-│  │   (NUC1)    │◄─►│   (NUC2)    │◄─►│   (NUC3)    │                          │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                          │
-│         │                │                │                                  │
-│  ═══════╪════════════════╪════════════════╪═════════════════════════════    │
-│         │                │                │                                  │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐  ┌─────────────┐  ┌─────────────┐
-│  │   Solr 1    │  │   Solr 2    │  │   Solr 3    │  │   Solr 4    │  │   Solr 5    │
-│  │   (NUC1)    │  │   (NUC2)    │  │   (NUC3)    │  │   (NUC4)    │  │   (NUC5)    │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘
-│                                                                              │
-│  ═══════════════════════════════════════════════════════════════════════    │
-│                                                                              │
-│                   ┌─────────────┐                                            │
-│                   │Spark Master │                                            │
-│                   │   (NUC2)    │                                            │
-│                   └──────┬──────┘                                            │
-│         ┌────────────────┼────────────────┐                                  │
-│         ▼                ▼                ▼                                  │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                          │
-│  │Spark Worker │  │Spark Worker │  │Spark Worker │                          │
-│  │   (NUC3)    │  │   (NUC4)    │  │   (NUC5)    │                          │
-│  └─────────────┘  └─────────────┘  └─────────────┘                          │
-│                                                                              │
-│  ═══════════════════════════════════════════════════════════════════════    │
-│                                                                              │
-│  ┌─────────────┐       ┌─────────────┐                                      │
-│  │ Prometheus  │──────►│   Grafana   │     Monitoring (NUC1)                │
-│  │   (NUC1)    │       │   (NUC1)    │                                      │
-│  └─────────────┘       └─────────────┘                                      │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### Big Data Stack
 
----
+➡️ **[SOLR-SPARK.md](SOLR-SPARK.md)** - Detaillierte Konfiguration:
+- Apache ZooKeeper Ensemble (3 Nodes)
+- Apache Solr Cloud (5 Nodes)
+- Apache Spark (1 Master + 3 Worker)
+- Ressourcen-Aufteilung & Isolation
 
-## Komponenten-Details
-
-### 1. ZooKeeper Ensemble (3 Nodes)
-
-**Nodes:** NUC1, NUC2, NUC3
-
-ZooKeeper bildet das Rückgrat des Clusters und koordiniert:
-- Solr Cloud Leader Election
-- Cluster State Management
-- Configuration Management
-
-**Konfiguration:**
-- 3-Node Ensemble für Quorum (toleriert 1 Node-Ausfall)
-- Port 2181 (Client), 2888 (Follower), 3888 (Election)
-- **Heap: 1 GB**
-- **Data Dir: `/data/zookeeper`**
-- Leader wird automatisch per Election gewählt
-
-**ZK IDs:**
-| Node | myid |
-|------|------|
-| NUC1 | 1 |
-| NUC2 | 2 |
-| NUC3 | 3 |
-
-### 2. Apache Solr Cloud (5 Nodes)
-
-**Nodes:** NUC1 - NUC5 (alle Nodes)
-
-Solr Cloud läuft verteilt auf allen 5 NUCs für maximale Suchleistung.
-
-**Konfiguration:**
-- Port: 8983
-- **Heap: 8 GB pro Node**
-- **Data Dir: `/data/solr`**
-
-**Empfohlene Default Collection:**
-```bash
-bin/solr create_collection -c default \
-  -shards 4 \
-  -replicationFactor 2 \
-  -maxShardsPerNode 2 \
-  -autoAddReplicas true
-```
-
-| Parameter | Wert |
-|-----------|------|
-| numShards | 4 |
-| replicationFactor | 2 |
-| maxShardsPerNode | 2 |
-| autoAddReplicas | true |
-
-### 3. Apache Spark (1 Master + 3 Worker)
-
-**Master:** NUC2  
-**Workers:** NUC3, NUC4, NUC5
-
-> **Wichtig:** Keine Spark Worker auf NUC1 (Monitoring) und NUC2 (Master).
-
-**Spark Master (NUC2):**
-- Port: 7077, Web UI: 8080
-- **Heap: 2 GB**
-
-```bash
-# In spark-env.sh auf NUC2:
-export SPARK_DAEMON_MEMORY=2g
-```
-
-**Spark Worker (NUC3-NUC5):**
-- **Executor Memory: 8 GB**
-- **Executors pro Node: 2**
-- **Cores pro Executor: 2**
-- **Data Dir: `/data/spark`** (Shuffle/Spill)
-
-**spark-defaults.conf:**
-```properties
-spark.executor.memory=8g
-spark.executor.cores=2
-spark.driver.memory=2g
-spark.local.dir=/data/spark
-```
-
-### 4. Prometheus + Grafana (Monitoring)
-
-**Node:** NUC1
+### Monitoring (NUC1)
 
 **Prometheus:**
 - Port: 9090
 - Scrape-Intervall: 15s
 - Retention: 15 Tage
-- **Data Dir: `/data/prometheus`**
+- Data Dir: `/data/prometheus`
+
+**Grafana:**
+- Port: 3000
+- Dashboards für: Cluster Overview, Solr, Spark, ZooKeeper
 
 **Prometheus Scrape Targets (via JMX Exporter):**
 
@@ -184,7 +80,7 @@ spark.local.dir=/data/spark
 | ZooKeeper | JMX Exporter | 9406 | NUC1-NUC3 |
 
 **prometheus.yml Scrape Config:**
-```yaml
+\`\`\`yaml
 scrape_configs:
   - job_name: 'node'
     static_configs:
@@ -218,52 +114,7 @@ scrape_configs:
         - 'nuc1:9406'
         - 'nuc2:9406'
         - 'nuc3:9406'
-```
-
-**Grafana:**
-- Port: 3000
-- Dashboards für: Cluster Overview, Solr, Spark, ZooKeeper
-
----
-
-## Ressourcen-Aufteilung (32 GB RAM pro Node)
-
-### RAM-Aufteilung
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                        RAM-AUFTEILUNG PRO NODE (32 GB)                        │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Node  │ Solr    │ ZooKeeper │ Spark      │ Monitoring │ OS/Cache │ Reserve  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ NUC1  │  8 GB   │   1 GB    │     -      │    2 GB    │   6 GB   │  15 GB   │
-│ NUC2  │  8 GB   │   1 GB    │  2 GB (M)  │     -      │   6 GB   │  15 GB   │
-│ NUC3  │  8 GB   │   1 GB    │ 16 GB (W)  │     -      │   6 GB   │   1 GB   │
-│ NUC4  │  8 GB   │    -      │ 16 GB (W)  │     -      │   6 GB   │   2 GB   │
-│ NUC5  │  8 GB   │    -      │ 16 GB (W)  │     -      │   6 GB   │   2 GB   │
-└──────────────────────────────────────────────────────────────────────────────┘
-(M) = Master, (W) = Worker (2 Executors × 8 GB)
-```
-
-### CPU-Aufteilung (4 Cores pro Node)
-
-**Systemd Resource Control:**
-
-> **Hinweis:** `CPUQuota=100%` entspricht 1 CPU-Core. Bei 4-Core-NUCs bedeutet `CPUQuota=200%` = 2 Cores.
-
-```ini
-# /etc/systemd/system/solr.service.d/override.conf
-[Service]
-MemoryMax=8G
-CPUQuota=200%
-
-# /etc/systemd/system/spark-worker.service.d/override.conf
-[Service]
-MemoryMax=16G
-CPUQuota=200%
-```
-
-> Solr und Spark Worker teilen sich so die 4 Cores fair (je 2 Cores max).
+\`\`\`
 
 ---
 
@@ -271,34 +122,16 @@ CPUQuota=200%
 
 | Verzeichnis | Zweck | Nodes |
 |-------------|-------|-------|
-| `/data/solr` | Solr Index | Alle |
-| `/data/spark` | Spark Shuffle/Spill | NUC2-NUC5 |
-| `/data/zookeeper` | ZK Data + Snapshots | NUC1-NUC3 |
-| `/data/prometheus` | Prometheus TSDB | NUC1 |
+| \`/data/solr\` | Solr Index | Alle |
+| \`/data/spark\` | Spark Shuffle/Spill | NUC2-NUC5 |
+| \`/data/zookeeper\` | ZK Data + Snapshots | NUC1-NUC3 |
+| \`/data/prometheus\` | Prometheus TSDB | NUC1 |
 
 ---
 
 ## Provisioning
 
-Die Baremetal-Installation mit Ubuntu Autoinstall und Cloud-Init ist in einer separaten Dokumentation beschrieben:
-
-➡️ **[BAREMETAL-SETUP.md](BAREMETAL-SETUP.md)**
-
----
-
-## Ressourcen-Isolation: Solr vs. Spark
-
-### Strategie 1: Zeitliche Trennung (Empfohlen für Demos)
-- Spark-Jobs nur außerhalb von Solr-Lastspitzen
-- Scheduling über Cron/Airflow
-
-### Strategie 2: Systemd Resource Control
-
-```ini
-# /etc/systemd/system/solr.service.d/override.conf
-[Service]
-MemoryMax=4G
-CPUQuota=150%
+➡️ **[BAREMETAL-SETUP.md](BAREMETAL-SETUP.md)** - Ubuntu Autoinstall & Cloud-Init
 
 ---
 
@@ -324,9 +157,7 @@ CPUQuota=150%
 
 ## Smoke Tests
 
-Nach dem Setup können folgende Tests zur Validierung ausgeführt werden:
-
-```bash
+\`\`\`bash
 # ZooKeeper Health Check
 echo ruok | nc nuc1 2181
 echo ruok | nc nuc2 2181
@@ -343,7 +174,7 @@ curl http://nuc1:9090/-/ready
 
 # Grafana Health
 curl http://nuc1:3000/api/health
-```
+\`\`\`
 
 ---
 
