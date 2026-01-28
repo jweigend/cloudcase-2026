@@ -10,8 +10,9 @@ Dieses Projekt beschreibt das Setup eines portablen Big Data Clusters auf 5 Inte
 
 | Dokument | Beschreibung |
 |----------|--------------|
-| [README.md](README.md) | Übersicht, Hardware, Netzwerk, Monitoring |
-| [SOLR-SPARK.md](SOLR-SPARK.md) | Solr Cloud, Spark, ZooKeeper Konfiguration |
+| [README-SETUP.md](README-SETUP.md) | Übersicht, Hardware, Netzwerk |
+| [SOLR-SPARK-SETUP.md](SOLR-SPARK-SETUP.md) | Solr Cloud, Spark, ZooKeeper Konfiguration |
+| [MONITORING-SETUP.md](MONITORING-SETUP.md) | Prometheus, Grafana, JMX Exporter |
 | [BAREMETAL-SETUP.md](BAREMETAL-SETUP.md) | Ubuntu Autoinstall & Cloud-Init |
 
 ---
@@ -52,7 +53,7 @@ Dieses Projekt beschreibt das Setup eines portablen Big Data Clusters auf 5 Inte
 
 ### Big Data Stack
 
-➡️ **[SOLR-SPARK.md](SOLR-SPARK.md)** - Detaillierte Konfiguration:
+➡️ **[SOLR-SPARK-SETUP.md](SOLR-SPARK-SETUP.md)** - Detaillierte Konfiguration:
 - Apache ZooKeeper Ensemble (3 Nodes)
 - Apache Solr Cloud (5 Nodes)
 - Apache Spark (1 Master + 3 Worker)
@@ -60,61 +61,11 @@ Dieses Projekt beschreibt das Setup eines portablen Big Data Clusters auf 5 Inte
 
 ### Monitoring (NUC1)
 
-**Prometheus:**
-- Port: 9090
-- Scrape-Intervall: 15s
-- Retention: 15 Tage
-- Data Dir: `/data/prometheus`
-
-**Grafana:**
-- Port: 3000
-- Dashboards für: Cluster Overview, Solr, Spark, ZooKeeper
-
-**Prometheus Scrape Targets (via JMX Exporter):**
-
-| Service | Exporter | Port | Nodes |
-|---------|----------|------|-------|
-| Node Metrics | node_exporter | 9100 | Alle |
-| Solr | JMX Exporter | 9404 | Alle |
-| Spark | JMX Exporter | 9405 | NUC2-NUC5 |
-| ZooKeeper | JMX Exporter | 9406 | NUC1-NUC3 |
-
-**prometheus.yml Scrape Config:**
-\`\`\`yaml
-scrape_configs:
-  - job_name: 'node'
-    static_configs:
-      - targets:
-        - 'nuc1:9100'
-        - 'nuc2:9100'
-        - 'nuc3:9100'
-        - 'nuc4:9100'
-        - 'nuc5:9100'
-
-  - job_name: 'solr'
-    static_configs:
-      - targets:
-        - 'nuc1:9404'
-        - 'nuc2:9404'
-        - 'nuc3:9404'
-        - 'nuc4:9404'
-        - 'nuc5:9404'
-
-  - job_name: 'spark'
-    static_configs:
-      - targets:
-        - 'nuc2:9405'
-        - 'nuc3:9405'
-        - 'nuc4:9405'
-        - 'nuc5:9405'
-
-  - job_name: 'zookeeper'
-    static_configs:
-      - targets:
-        - 'nuc1:9406'
-        - 'nuc2:9406'
-        - 'nuc3:9406'
-\`\`\`
+➡️ **[MONITORING-SETUP.md](MONITORING-SETUP.md)** - Detaillierte Konfiguration:
+- Prometheus (Metrics Collection)
+- Grafana (Dashboards)
+- Node Exporter (System-Metriken)
+- JMX Exporter (Solr, Spark, ZooKeeper)
 
 ---
 
