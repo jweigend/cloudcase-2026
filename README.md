@@ -123,7 +123,8 @@ Solr Cloud läuft verteilt auf allen 5 NUCs für maximale Suchleistung.
 bin/solr create_collection -c default \
   -shards 4 \
   -replicationFactor 2 \
-  -maxShardsPerNode 2
+  -maxShardsPerNode 2 \
+  -autoAddReplicas true
 ```
 
 | Parameter | Wert |
@@ -131,6 +132,7 @@ bin/solr create_collection -c default \
 | numShards | 4 |
 | replicationFactor | 2 |
 | maxShardsPerNode | 2 |
+| autoAddReplicas | true |
 
 ### 3. Apache Spark (1 Master + 3 Worker)
 
@@ -143,6 +145,11 @@ bin/solr create_collection -c default \
 - Port: 7077, Web UI: 8080
 - **Heap: 2 GB**
 
+```bash
+# In spark-env.sh auf NUC2:
+export SPARK_DAEMON_MEMORY=2g
+```
+
 **Spark Worker (NUC3-NUC5):**
 - **Executor Memory: 8 GB**
 - **Executors pro Node: 2**
@@ -153,8 +160,8 @@ bin/solr create_collection -c default \
 ```properties
 spark.executor.memory=8g
 spark.executor.cores=2
-spark.executor.instances=2
 spark.driver.memory=2g
+spark.local.dir=/data/spark
 ```
 
 ### 4. Prometheus + Grafana (Monitoring)
@@ -242,6 +249,8 @@ scrape_configs:
 
 **Systemd Resource Control:**
 
+> **Hinweis:** `CPUQuota=100%` entspricht 1 CPU-Core. Bei 4-Core-NUCs bedeutet `CPUQuota=200%` = 2 Cores.
+
 ```ini
 # /etc/systemd/system/solr.service.d/override.conf
 [Service]
@@ -253,6 +262,8 @@ CPUQuota=200%
 MemoryMax=16G
 CPUQuota=200%
 ```
+
+> Solr und Spark Worker teilen sich so die 4 Cores fair (je 2 Cores max).
 
 ---
 
