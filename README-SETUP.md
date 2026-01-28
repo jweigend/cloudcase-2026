@@ -17,6 +17,47 @@ Dieses Projekt beschreibt das Setup eines portablen Big Data Clusters auf 5 Inte
 
 ---
 
+## Installations-Reihenfolge
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         SETUP WORKFLOW                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌───────────────────┐                                                     │
+│   │  1. BAREMETAL     │  Ubuntu Autoinstall + Cloud-Init                    │
+│   │     SETUP         │  → OS auf allen 5 NUCs installieren                 │
+│   └─────────┬─────────┘                                                     │
+│             │                                                                │
+│             ▼                                                                │
+│   ┌───────────────────┐                                                     │
+│   │  2. SOLR-SPARK    │  ZooKeeper → Solr Cloud → Spark                     │
+│   │     SETUP         │  → Big Data Stack deployen                          │
+│   └─────────┬─────────┘                                                     │
+│             │                                                                │
+│             ▼                                                                │
+│   ┌───────────────────┐                                                     │
+│   │  3. MONITORING    │  Prometheus + Grafana + JMX Exporter                │
+│   │     SETUP         │  → Überwachung einrichten                           │
+│   └─────────┬─────────┘                                                     │
+│             │                                                                │
+│             ▼                                                                │
+│   ┌───────────────────┐                                                     │
+│   │  4. SMOKE TESTS   │  Cluster-Validierung                                │
+│   └───────────────────┘                                                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Schritt | Dokument | Beschreibung |
+|---------|----------|--------------|
+| **1** | [BAREMETAL-SETUP.md](BAREMETAL-SETUP.md) | Ubuntu auf allen NUCs installieren |
+| **2** | [SOLR-SPARK-SETUP.md](SOLR-SPARK-SETUP.md) | ZooKeeper, Solr Cloud, Spark Cluster |
+| **3** | [MONITORING-SETUP.md](MONITORING-SETUP.md) | Prometheus, Grafana, Exporter |
+| **4** | Smoke Tests (unten) | Cluster validieren |
+
+---
+
 ## Hardware-Spezifikation
 
 | Komponente | Spezifikation |
