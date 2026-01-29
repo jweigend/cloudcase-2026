@@ -1,0 +1,193 @@
+---
+# Spark Cluster Installation
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml spark.yml
+#
+
+- name: Install Spark on all nodes
+  hosts: spark
+  vars:
+    spark_home: /opt/spark
+    spark_user: cloudadmin
+    spark_master_host: node1.cloud.local
+    spark_master_port: 7077
+    spark_worker_memory: 2g
+    spark_worker_cores: 2
+    
+  tasks:
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0755'
+      loop:
+        - "{{ spark_home }}"
+        - /data/spark
+        - /data/spark/logs
+        - /data/spark/work
+
+    - name: Check if Spark is already installed
+      stat:
+        path: "{{ spark_home }}/bin/spark-submit"
+      register: spark_installed
+
+    - name: Download Spark
+      get_url:
+        url: "https://dlcdn.apache.org/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop3-scala2.13.tgz"
+        dest: /tmp/spark.tgz
+        mode: '0644'
+        timeout: 300
+      when: not spark_installed.stat.exists
+
+    - name: Extract Spark
+      unarchive:
+        src: /tmp/spark.tgz
+        dest: /tmp
+        remote_src: yes
+      when: not spark_installed.stat.exists
+
+    - name: Install Spark
+      shell: |
+        cp -r /tmp/spark-{{ spark_version }}-bin-hadoop3-scala2.13/* {{ spark_home }}/
+        chown -R {{ spark_user }}:{{ spark_user }} {{ spark_home }}
+      when: not spark_installed.stat.exists
+
+    - name: Clean up download
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/spark.tgz
+        - /tmp/spark-{{ spark_version }}-bin-hadoop3-scala2.13
+      when: not spark_installed.stat.exists
+
+    - name: Configure spark-env.sh
+      copy:
+        dest: "{{ spark_home }}/conf/spark-env.sh"
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          
+          export JAVA_HOME="{{ java_home }}"
+          export SPARK_HOME="{{ spark_home }}"
+          export SPARK_LOG_DIR=/data/spark/logs
+          export SPARK_WORKER_DIR=/data/spark/work
+          
+          export SPARK_MASTER_HOST={{ spark_master_host }}
+          export SPARK_MASTER_PORT={{ spark_master_port }}
+          
+          export SPARK_WORKER_MEMORY={{ spark_worker_memory }}
+          export SPARK_WORKER_CORES={{ spark_worker_cores }}
+
+    - name: Configure spark-defaults.conf
+      copy:
+        dest: "{{ spark_home }}/conf/spark-defaults.conf"
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        content: |
+          spark.master                     spark://{{ spark_master_host }}:{{ spark_master_port }}
+          spark.eventLog.enabled           true
+          spark.eventLog.dir               file:///data/spark/logs
+          spark.history.fs.logDirectory    file:///data/spark/logs
+          spark.serializer                 org.apache.spark.serializer.KryoSerializer
+
+- name: Configure Spark Master
+  hosts: spark_master
+  vars:
+    spark_home: /opt/spark
+    spark_user: cloudadmin
+    
+  tasks:
+    - name: Create Spark Master systemd service
+      copy:
+        dest: /etc/systemd/system/spark-master.service
+        content: |
+          [Unit]
+          Description=Apache Spark Master
+          After=network.target
+          
+          [Service]
+          Type=forking
+          User={{ spark_user }}
+          Environment="JAVA_HOME={{ java_home }}"
+          Environment="SPARK_HOME={{ spark_home }}"
+          ExecStart={{ spark_home }}/sbin/start-master.sh
+          ExecStop={{ spark_home }}/sbin/stop-master.sh
+          Restart=on-failure
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Spark Master
+      systemd:
+        name: spark-master
+        enabled: yes
+        state: started
+
+    - name: Wait for Spark Master to start
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 7077
+        timeout: 30
+
+    - name: Show Spark Master status
+      debug:
+        msg: "Spark Master running on {{ inventory_hostname }}:7077 (UI: http://{{ inventory_hostname }}:8081)"
+
+- name: Configure Spark Workers
+  hosts: spark_workers
+  vars:
+    spark_home: /opt/spark
+    spark_user: cloudadmin
+    spark_master_host: node1.cloud.local
+    
+  tasks:
+    - name: Create Spark Worker systemd service
+      copy:
+        dest: /etc/systemd/system/spark-worker.service
+        content: |
+          [Unit]
+          Description=Apache Spark Worker
+          After=network.target spark-master.service
+          
+          [Service]
+          Type=forking
+          User={{ spark_user }}
+          Environment="JAVA_HOME={{ java_home }}"
+          Environment="SPARK_HOME={{ spark_home }}"
+          ExecStart={{ spark_home }}/sbin/start-worker.sh spark://{{ spark_master_host }}:7077
+          ExecStop={{ spark_home }}/sbin/stop-worker.sh
+          Restart=on-failure
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Spark Worker
+      systemd:
+        name: spark-worker
+        enabled: yes
+        state: started
+
+    - name: Wait for Spark Worker to start
+      wait_for:
+        port: 8081
+        timeout: 30
+
+    - name: Show Spark Worker status
+      debug:
+        msg: "Spark Worker running on {{ inventory_hostname }} (UI: http://{{ inventory_hostname }}:8081)"

@@ -63,13 +63,13 @@ loadfont unicode
 
 menuentry "Cloudkoffer Autoinstall" {
     set gfxpayload=keep
-    linux   /casper/vmlinuz autoinstall ds=nocloud\;s=/cdrom/autoinstall/ ---
+    linux   /casper/vmlinuz nomodeset autoinstall ds=nocloud\;s=/cdrom/autoinstall/ ---
     initrd  /casper/initrd
 }
 
 menuentry "Ubuntu Server (Manuell)" {
     set gfxpayload=keep
-    linux   /casper/vmlinuz ---
+    linux   /casper/vmlinuz nomodeset ---
     initrd  /casper/initrd
 }
 EOF

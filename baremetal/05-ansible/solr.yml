@@ -1,0 +1,137 @@
+---
+# Solr Cloud Installation
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml solr.yml
+#
+# Voraussetzung: ZooKeeper muss laufen
+#
+
+- name: Install Solr Cloud
+  hosts: solr
+  vars:
+    solr_home: /opt/solr
+    solr_data: /data/solr
+    solr_user: cloudadmin
+    solr_port: 8983
+    solr_heap: 1g
+    
+  tasks:
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ solr_user }}"
+        group: "{{ solr_user }}"
+        mode: '0755'
+      loop:
+        - "{{ solr_home }}"
+        - "{{ solr_data }}"
+
+    - name: Check if Solr is already installed
+      stat:
+        path: "{{ solr_home }}/bin/solr"
+      register: solr_installed
+
+    - name: Download Solr
+      get_url:
+        url: "https://dlcdn.apache.org/solr/solr/{{ solr_version }}/solr-{{ solr_version }}.tgz"
+        dest: /tmp/solr.tgz
+        mode: '0644'
+        timeout: 300
+      when: not solr_installed.stat.exists
+
+    - name: Extract Solr
+      unarchive:
+        src: /tmp/solr.tgz
+        dest: /tmp
+        remote_src: yes
+      when: not solr_installed.stat.exists
+
+    - name: Install Solr
+      shell: |
+        cp -r /tmp/solr-{{ solr_version }}/* {{ solr_home }}/
+        chown -R {{ solr_user }}:{{ solr_user }} {{ solr_home }}
+      when: not solr_installed.stat.exists
+
+    - name: Clean up download
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/solr.tgz
+        - /tmp/solr-{{ solr_version }}
+      when: not solr_installed.stat.exists
+
+    - name: Configure solr.in.sh
+      copy:
+        dest: "{{ solr_home }}/bin/solr.in.sh"
+        owner: "{{ solr_user }}"
+        group: "{{ solr_user }}"
+        content: |
+          # Solr Cloud Configuration
+          
+          SOLR_JAVA_HOME="{{ java_home }}"
+          SOLR_HOME="{{ solr_data }}"
+          SOLR_PORT={{ solr_port }}
+          
+          # Bind to all interfaces (not just localhost)
+          SOLR_JETTY_HOST="0.0.0.0"
+          
+          # ZooKeeper Connection
+          ZK_HOST="node1.{{ domain }}:2181,node2.{{ domain }}:2181,node3.{{ domain }}:2181"
+          
+          # Memory
+          SOLR_HEAP="{{ solr_heap }}"
+          
+          # Cloud Mode
+          SOLR_MODE="solrcloud"
+          
+          # Hostname für Cluster-Kommunikation
+          SOLR_HOST="{{ inventory_hostname }}.{{ domain }}"
+
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/solr.service
+        content: |
+          [Unit]
+          Description=Apache Solr
+          After=network.target zookeeper.service
+          
+          [Service]
+          Type=forking
+          User={{ solr_user }}
+          Environment="SOLR_INCLUDE={{ solr_home }}/bin/solr.in.sh"
+          ExecStart={{ solr_home }}/bin/solr start
+          ExecStop={{ solr_home }}/bin/solr stop
+          Restart=on-failure
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Solr
+      systemd:
+        name: solr
+        enabled: yes
+        state: started
+
+    - name: Wait for Solr to start
+      wait_for:
+        port: "{{ solr_port }}"
+        timeout: 60
+
+    - name: Check Solr status
+      uri:
+        url: "http://localhost:{{ solr_port }}/solr/admin/info/system"
+        return_content: yes
+      register: solr_status
+      changed_when: false
+
+    - name: Show Solr status
+      debug:
+        msg: "Solr on {{ inventory_hostname }} is running (Solr {{ solr_version }})"

@@ -98,6 +98,9 @@ autoinstall:
     # NOPASSWD für cloudadmin (für automatisiertes Post-Install)
     - echo 'cloudadmin ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/cloudadmin
     - chmod 440 /target/etc/sudoers.d/cloudadmin
+    # nomodeset für problematische NUC-Grafik permanent setzen
+    - sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="nomodeset"/' /target/etc/default/grub
+    - curtin in-target -- update-grub
     # Data-Verzeichnisse
     - mkdir -p /target/data/solr /target/data/spark /target/data/zookeeper /target/data/prometheus
     - chown -R 1000:1000 /target/data

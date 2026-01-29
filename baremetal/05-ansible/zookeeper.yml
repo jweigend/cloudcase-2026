@@ -1,0 +1,140 @@
+---
+# ZooKeeper Cluster Installation
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml zookeeper.yml
+#
+
+- name: Install ZooKeeper Cluster
+  hosts: zookeeper
+  vars:
+    zk_home: /opt/zookeeper
+    zk_data: /data/zookeeper
+    zk_user: cloudadmin
+    
+  tasks:
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ zk_user }}"
+        group: "{{ zk_user }}"
+        mode: '0755'
+      loop:
+        - "{{ zk_home }}"
+        - "{{ zk_data }}"
+
+    - name: Check if ZooKeeper is already installed
+      stat:
+        path: "{{ zk_home }}/bin/zkServer.sh"
+      register: zk_installed
+
+    - name: Download ZooKeeper
+      get_url:
+        url: "https://dlcdn.apache.org/zookeeper/zookeeper-{{ zookeeper_version }}/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
+        dest: /tmp/zookeeper.tar.gz
+        mode: '0644'
+      when: not zk_installed.stat.exists
+
+    - name: Extract ZooKeeper
+      unarchive:
+        src: /tmp/zookeeper.tar.gz
+        dest: /tmp
+        remote_src: yes
+      when: not zk_installed.stat.exists
+
+    - name: Install ZooKeeper
+      shell: |
+        cp -r /tmp/apache-zookeeper-{{ zookeeper_version }}-bin/* {{ zk_home }}/
+        chown -R {{ zk_user }}:{{ zk_user }} {{ zk_home }}
+      when: not zk_installed.stat.exists
+
+    - name: Clean up download
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/zookeeper.tar.gz
+        - /tmp/apache-zookeeper-{{ zookeeper_version }}-bin
+      when: not zk_installed.stat.exists
+
+    - name: Configure zoo.cfg
+      copy:
+        dest: "{{ zk_home }}/conf/zoo.cfg"
+        owner: "{{ zk_user }}"
+        group: "{{ zk_user }}"
+        content: |
+          tickTime=2000
+          initLimit=10
+          syncLimit=5
+          dataDir={{ zk_data }}
+          clientPort=2181
+          
+          server.1=node1.{{ domain }}:2888:3888
+          server.2=node2.{{ domain }}:2888:3888
+          server.3=node3.{{ domain }}:2888:3888
+          
+          autopurge.snapRetainCount=3
+          autopurge.purgeInterval=24
+          
+          4lw.commands.whitelist=ruok,stat,mntr,srvr
+
+    - name: Configure JVM settings
+      copy:
+        dest: "{{ zk_home }}/conf/java.env"
+        owner: "{{ zk_user }}"
+        group: "{{ zk_user }}"
+        content: |
+          export JVMFLAGS="-Xms512m -Xmx512m"
+
+    - name: Set myid
+      copy:
+        dest: "{{ zk_data }}/myid"
+        owner: "{{ zk_user }}"
+        group: "{{ zk_user }}"
+        content: "{{ zk_id }}"
+
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/zookeeper.service
+        content: |
+          [Unit]
+          Description=Apache ZooKeeper
+          After=network.target
+          
+          [Service]
+          Type=forking
+          User={{ zk_user }}
+          Environment="JAVA_HOME={{ java_home }}"
+          Environment="ZOO_LOG_DIR={{ zk_data }}"
+          ExecStart={{ zk_home }}/bin/zkServer.sh start
+          ExecStop={{ zk_home }}/bin/zkServer.sh stop
+          Restart=on-failure
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start ZooKeeper
+      systemd:
+        name: zookeeper
+        enabled: yes
+        state: started
+
+    - name: Wait for ZooKeeper to start
+      wait_for:
+        port: 2181
+        timeout: 30
+
+    - name: Check ZooKeeper status
+      shell: echo "ruok" | nc localhost 2181
+      register: zk_status
+      changed_when: false
+
+    - name: Show ZooKeeper status
+      debug:
+        msg: "ZooKeeper on {{ inventory_hostname }}: {{ zk_status.stdout }}"

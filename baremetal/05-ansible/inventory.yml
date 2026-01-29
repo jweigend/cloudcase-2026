@@ -1,0 +1,87 @@
+---
+# Ansible Inventory für Cloudkoffer Cluster
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml playbook.yml
+#
+
+all:
+  vars:
+    ansible_user: cloudadmin
+    ansible_become: true
+    ansible_python_interpreter: /usr/bin/python3
+    
+    # Domain
+    domain: cloud.local
+    
+    # Java
+    java_home: /usr/lib/jvm/java-17-openjdk-amd64
+    
+    # Versionen
+    zookeeper_version: "3.9.4"
+    solr_version: "9.10.1"
+    spark_version: "3.5.8"
+    prometheus_version: "2.54.1"
+    grafana_version: "11.4.0"
+    node_exporter_version: "1.8.2"
+
+  children:
+    # DNS und Monitoring Server
+    monitoring:
+      hosts:
+        node0:
+          ansible_host: 192.168.1.100
+    
+    # ZooKeeper Cluster (3 Nodes für Quorum)
+    zookeeper:
+      hosts:
+        node1:
+          ansible_host: 192.168.1.101
+          zk_id: 1
+        node2:
+          ansible_host: 192.168.1.102
+          zk_id: 2
+        node3:
+          ansible_host: 192.168.1.103
+          zk_id: 3
+    
+    # Solr Cloud (4 Nodes)
+    solr:
+      hosts:
+        node1:
+          ansible_host: 192.168.1.101
+        node2:
+          ansible_host: 192.168.1.102
+        node3:
+          ansible_host: 192.168.1.103
+        node4:
+          ansible_host: 192.168.1.104
+    
+    # Spark Master
+    spark_master:
+      hosts:
+        node1:
+          ansible_host: 192.168.1.101
+    
+    # Spark Workers
+    spark_workers:
+      hosts:
+        node2:
+          ansible_host: 192.168.1.102
+        node3:
+          ansible_host: 192.168.1.103
+        node4:
+          ansible_host: 192.168.1.104
+    
+    # Alle Spark Nodes
+    spark:
+      children:
+        spark_master:
+        spark_workers:
+    
+    # Alle Cluster Nodes (ohne Monitoring)
+    cluster:
+      children:
+        zookeeper:
+        solr:
+        spark:

@@ -1,0 +1,28 @@
+---
+# Master Playbook - Installiert den gesamten Big Data Stack
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml site.yml
+#
+# Oder einzelne Tags:
+#   ansible-playbook -i inventory.yml site.yml --tags zookeeper
+#   ansible-playbook -i inventory.yml site.yml --tags solr
+#   ansible-playbook -i inventory.yml site.yml --tags spark
+#   ansible-playbook -i inventory.yml site.yml --tags monitoring
+#
+
+- name: Install ZooKeeper Cluster
+  import_playbook: zookeeper.yml
+  tags: zookeeper
+
+- name: Install Solr Cloud
+  import_playbook: solr.yml
+  tags: solr
+
+- name: Install Spark Cluster
+  import_playbook: spark.yml
+  tags: spark
+
+- name: Install Monitoring Stack
+  import_playbook: monitoring.yml
+  tags: monitoring
