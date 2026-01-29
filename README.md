@@ -200,6 +200,109 @@ Cloudkoffer-2026/
 
 ---
 
+## FAQ
+
+### Warum kein Kubernetes?
+
+**Kurz:** Overhead ohne Nutzen für diesen Use Case.
+
+| Aspekt | Kubernetes | Unser Ansatz |
+|--------|------------|--------------|
+| **Komplexität** | Control Plane, etcd, CNI, Ingress, ... | Direkter Zugriff auf Services |
+| **Ressourcen** | ~2-4 GB RAM nur für K8s selbst | Alles für Solr/Spark verfügbar |
+| **Debugging** | Pod-Logs, kubectl, Service-Mesh | SSH + journalctl + tail -f |
+| **Startup-Zeit** | Minuten (Scheduling, Pulls) | Sekunden (systemd) |
+| **Lernkurve** | Steil für Workshop-Teilnehmer | Linux-Basics reichen |
+
+Kubernetes löst Probleme, die wir nicht haben:
+- **Horizontal Scaling** → Wir haben feste 5 Nodes
+- **Rolling Deployments** → Demo-Cluster, kein Prod
+- **Multi-Tenancy** → Single Purpose System
+- **Cloud Portability** → Läuft im Koffer, nicht in AWS
+
+> *"Use the simplest thing that could possibly work."* - Ward Cunningham
+
+### Macht dieser Aufbau 2026 noch Sinn?
+
+**Ja, gerade 2026!** Hier ist warum:
+
+#### 1. Edge Computing ist relevanter denn je
+- Nicht alles gehört in die Cloud
+- Latenz, Datenschutz, Offline-Fähigkeit
+- Der Cloudkoffer ist ein Edge-Cluster zum Anfassen
+
+#### 2. Die Technologien sind ausgereift
+- **Solr 9.x** - 20+ Jahre Entwicklung, battle-tested
+- **Spark 3.x** - De-facto Standard für Big Data
+- **ZooKeeper** - Bewährt in Netflix, LinkedIn, Twitter
+- Kein Hype, sondern solide Werkzeuge
+
+#### 3. Hands-on Learning schlägt Theorie
+- Cloud-Consoles abstrahieren zu viel
+- Hier siehst du: Config-Files, Logs, Prozesse
+- Fehler sind sichtbar und debugbar
+
+#### 4. Unabhängigkeit von Cloud-Anbietern
+- Kein AWS/Azure/GCP Account nötig
+- Keine laufenden Kosten
+- Funktioniert ohne Internet (nach Setup)
+
+### Warum Cloud-Init?
+
+Cloud-Init ist der **Industriestandard** für Server-Provisioning:
+
+#### Vorteile
+
+| Feature | Vorteil |
+|---------|---------|
+| **Deklarativ** | YAML beschreibt Zielzustand, nicht Schritte |
+| **Idempotent** | Mehrfach ausführen = gleiches Ergebnis |
+| **Universell** | AWS, Azure, GCP, OpenStack, Bare Metal |
+| **Einfach** | Keine Agents, keine Server, kein Master |
+
+#### Alternativen und warum nicht
+
+| Tool | Warum nicht |
+|------|-------------|
+| **Ansible** | Braucht SSH-Zugang + Control Node. Cloud-Init läuft *vor* dem ersten Boot. |
+| **Puppet/Chef** | Agent-basiert, Server nötig, Overkill für 5 Nodes |
+| **Terraform** | Für Infrastruktur-Provisioning, nicht OS-Config |
+| **Shell Scripts** | Nicht idempotent, fehleranfällig, schwer wartbar |
+
+#### So nutzen wir Cloud-Init
+
+```
+┌─────────────────────┐
+│   USB-Stick Boot    │
+│   (Autoinstall)     │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐     ┌─────────────────────┐
+│  user-data (YAML)   │────▶│  Ubuntu installiert │
+│  - Locale, Keyboard │     │  - SSH ready        │
+│  - User + SSH-Key   │     │  - /data erstellt   │
+│  - /etc/hosts       │     │  - Basis-System     │
+└─────────────────────┘     └──────────┬──────────┘
+                                       │
+                                       ▼
+                            ┌─────────────────────┐
+                            │  Post-Install       │
+                            │  (Cloud-Init YAML)  │
+                            │  - Pakete           │
+                            │  - Services         │
+                            │  - Konfiguration    │
+                            └─────────────────────┘
+```
+
+Cloud-Init ist die richtige Wahl, weil es:
+- Im Ubuntu-Installer bereits integriert ist
+- Keine zusätzliche Infrastruktur braucht
+- Reproduzierbare Ergebnisse liefert
+- In 5 Minuten verständlich ist
+
+---
+
 ## Lizenz
 
 Internes Projekt - nicht zur Veröffentlichung bestimmt.
