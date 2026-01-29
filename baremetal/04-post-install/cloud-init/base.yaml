@@ -12,7 +12,6 @@ packages:
   - htop
   - vim
   - tmux
-  - dnsmasq
 
 # Swap deaktivieren
 swap:

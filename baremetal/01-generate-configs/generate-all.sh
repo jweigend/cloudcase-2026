@@ -88,37 +88,6 @@ autoinstall:
       192.168.1.103 node3 node3.cloud.local
       192.168.1.104 node4 node4.cloud.local
       HOSTS
-    # DNS-Forwarding Konfiguration fuer node0
-    - |
-      cat > /target/etc/dnsmasq.d/cloud-local.conf << DNSCONF
-      # Cloudkoffer DNS Forwarding
-      domain=cloud.local
-      local=/cloud.local/
-      expand-hosts
-      # Upstream DNS
-      server=8.8.8.8
-      server=8.8.4.4
-      # Listen on all interfaces
-      interface=*
-      bind-interfaces
-      DNSCONF
-    # DNS auf node0 aktivieren (wird im Post-Install basierend auf IP aktiviert)
-    - |
-      cat > /target/etc/systemd/system/dnsmasq-setup.service << SVCFILE
-      [Unit]
-      Description=Setup dnsmasq on node0
-      After=network-online.target
-      Wants=network-online.target
-      
-      [Service]
-      Type=oneshot
-      ExecStart=/bin/bash -c 'IP=\$(hostname -I | awk "{print \\$1}"); if [ "\$IP" = "192.168.1.100" ]; then systemctl enable --now dnsmasq; else systemctl disable dnsmasq; fi'
-      RemainAfterExit=yes
-      
-      [Install]
-      WantedBy=multi-user.target
-      SVCFILE
-    - curtin in-target -- systemctl enable dnsmasq-setup.service
 EOF
 
 # meta-data

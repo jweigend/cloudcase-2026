@@ -98,6 +98,7 @@ fi
 
 # Monitoring (node0)
 if [[ "$NODE_NAME" == "node0" ]]; then
+    CLOUD_INIT_FILES+=("$SCRIPT_DIR/cloud-init/dns-server.yaml")
     CLOUD_INIT_FILES+=("$BASE_DIR/08-install-monitoring/cloud-init-prometheus.yaml")
 fi
 

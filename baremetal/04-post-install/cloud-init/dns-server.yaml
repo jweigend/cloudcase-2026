@@ -1,0 +1,25 @@
+#cloud-config
+#
+# DNS Server Konfiguration (nur node0)
+#
+
+packages:
+  - dnsmasq
+
+write_files:
+  - path: /etc/dnsmasq.d/cloud-local.conf
+    content: |
+      # Cloudkoffer DNS Forwarding
+      domain=cloud.local
+      local=/cloud.local/
+      expand-hosts
+      # Upstream DNS
+      server=8.8.8.8
+      server=8.8.4.4
+      # Listen on all interfaces
+      listen-address=0.0.0.0
+      bind-interfaces
+
+runcmd:
+  - systemctl enable dnsmasq
+  - systemctl restart dnsmasq
