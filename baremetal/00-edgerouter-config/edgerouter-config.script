@@ -58,6 +58,21 @@ set service dhcp-server shared-network-name LAN subnet 192.168.1.0/24 lease 8640
 # ============================================
 set service dns forwarding listen-on switch0
 set service dns forwarding cache-size 500
+# Forward cloud.local to dnsmasq on node0
+set service dns forwarding options server=/cloud.local/192.168.1.100
+# Static entries for nodes (fallback if node0 is down)
+set service dns forwarding options address=/node0.cloud.local/192.168.1.100
+set service dns forwarding options address=/node1.cloud.local/192.168.1.101
+set service dns forwarding options address=/node2.cloud.local/192.168.1.102
+set service dns forwarding options address=/node3.cloud.local/192.168.1.103
+set service dns forwarding options address=/node4.cloud.local/192.168.1.104
+# Short names without domain
+set service dns forwarding options address=/node0/192.168.1.100
+set service dns forwarding options address=/node1/192.168.1.101
+set service dns forwarding options address=/node2/192.168.1.102
+set service dns forwarding options address=/node3/192.168.1.103
+set service dns forwarding options address=/node4/192.168.1.104
+# Upstream DNS for everything else
 set service dns forwarding name-server 8.8.8.8
 set service dns forwarding name-server 1.1.1.1
 
