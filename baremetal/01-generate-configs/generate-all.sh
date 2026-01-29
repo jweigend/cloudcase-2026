@@ -23,10 +23,31 @@ fi
 SSH_PUBKEY=$(cat "$SSH_PUBKEY_FILE")
 echo "SSH Key: ${SSH_PUBKEY:0:50}..."
 
-# Passwort
+# Passwort mit Bestätigung
 echo ""
-echo "Passwort für cloudadmin eingeben:"
-read -s PASSWORD
+while true; do
+    echo "Passwort für cloudadmin eingeben:"
+    read -s PASSWORD
+    echo ""
+    
+    if [[ -z "$PASSWORD" ]]; then
+        echo "FEHLER: Passwort darf nicht leer sein!"
+        continue
+    fi
+    
+    echo "Passwort wiederholen:"
+    read -s PASSWORD2
+    echo ""
+    
+    if [[ "$PASSWORD" == "$PASSWORD2" ]]; then
+        echo "✓ Passwort bestätigt"
+        break
+    else
+        echo "FEHLER: Passwörter stimmen nicht überein! Bitte erneut versuchen."
+        echo ""
+    fi
+done
+
 PASSWORD_HASH=$(echo "$PASSWORD" | mkpasswd --method=SHA-512 --stdin)
 
 # Verzeichnis erstellen
