@@ -65,8 +65,23 @@ echo "Node-Name: $NODE_NAME"
 echo ""
 
 # Hostname setzen
-echo "[1/4] Hostname setzen..."
+echo "[1/5] Hostname setzen..."
 ssh "${USERNAME}@${TARGET}" "sudo hostnamectl set-hostname $NODE_NAME"
+
+# DNS prüfen und ggf. temporär fixen
+echo "[2/5] DNS prüfen..."
+ssh "${USERNAME}@${TARGET}" '
+    # Teste ob DNS funktioniert
+    if ! host archive.ubuntu.com >/dev/null 2>&1; then
+        echo "      DNS nicht erreichbar - setze temporär 8.8.8.8"
+        # Backup original resolv.conf
+        sudo cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
+        # Temporär Google DNS setzen
+        echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf > /dev/null
+    else
+        echo "      DNS funktioniert"
+    fi
+'
 
 # Cloud-Init Dateien ermitteln
 CLOUD_INIT_FILES=()
@@ -107,7 +122,7 @@ fi
 # Node Exporter (alle Nodes)
 CLOUD_INIT_FILES+=("$BASE_DIR/08-install-monitoring/cloud-init-exporter.yaml")
 
-echo "[2/4] Cloud-Init Dateien für $NODE_NAME:"
+echo "[3/5] Cloud-Init Dateien für $NODE_NAME:"
 for f in "${CLOUD_INIT_FILES[@]}"; do
     if [[ -f "$f" ]]; then
         echo "      ✓ $(basename "$f")"
@@ -118,7 +133,7 @@ done
 echo ""
 
 # Dateien einzeln kopieren und ausführen
-echo "[3/4] Cloud-Init Module ausführen..."
+echo "[4/5] Cloud-Init Module ausführen..."
 
 # Erst NoCloud Datasource setzen (einmalig)
 ssh "${USERNAME}@${TARGET}" "
@@ -158,7 +173,18 @@ done
 ssh "${USERNAME}@${TARGET}" "rm -f /tmp/cloud-config.yaml"
 
 echo ""
-echo "[4/4] Services prüfen..."
+echo "[5/5] Services prüfen..."
+
+# Für node0: DNS auf dnsmasq umstellen (jetzt wo es installiert ist)
+if [[ "$NODE_NAME" == "node0" ]]; then
+    ssh "${USERNAME}@${TARGET}" '
+        # Warte bis dnsmasq läuft
+        if systemctl is-active dnsmasq >/dev/null 2>&1; then
+            echo "      DNS auf dnsmasq umstellen..."
+            echo -e "nameserver 127.0.0.1\nnameserver 8.8.8.8\nsearch cloud.local" | sudo tee /etc/resolv.conf > /dev/null
+        fi
+    '
+fi
 
 # Services Status ausgeben
 ssh "${USERNAME}@${TARGET}" '
