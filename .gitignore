@@ -1,0 +1,20 @@
+# Generierte ISOs
+*.iso
+baremetal/02-create-iso/output/
+
+# Temporäre Arbeitsverzeichnisse
+baremetal/02-create-iso/work/
+
+# Generierte Autoinstall Konfiguration (enthält Passwort-Hash)
+baremetal/01-generate-configs/autoinstall/
+
+# Editor und System
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

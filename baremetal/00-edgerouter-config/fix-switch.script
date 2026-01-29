@@ -1,0 +1,16 @@
+#!/bin/vbash
+# Fix: eth0 zum Switch hinzufügen für gemeinsames DHCP
+
+source /opt/vyatta/etc/functions/script-template
+
+configure
+
+# eth0 Adresse entfernen und zum Switch hinzufügen
+delete interfaces ethernet eth0 address
+set interfaces switch switch0 switch-port interface eth0
+set interfaces switch switch0 address 192.168.1.1/24
+
+commit
+save
+
+exit

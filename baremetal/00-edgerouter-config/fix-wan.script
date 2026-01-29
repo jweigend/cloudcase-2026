@@ -1,0 +1,31 @@
+#!/bin/vbash
+# Korrektur: WAN und Firewall hinzufügen
+
+source /opt/vyatta/etc/functions/script-template
+
+configure
+
+# Firewall für WAN
+set firewall name WAN_IN default-action drop
+set firewall name WAN_IN rule 10 action accept
+set firewall name WAN_IN rule 10 state established enable
+set firewall name WAN_IN rule 10 state related enable
+
+set firewall name WAN_LOCAL default-action drop
+set firewall name WAN_LOCAL rule 10 action accept
+set firewall name WAN_LOCAL rule 10 state established enable
+set firewall name WAN_LOCAL rule 10 state related enable
+
+# WAN Interface
+set interfaces ethernet eth4 description "WAN"
+set interfaces ethernet eth4 address dhcp
+set interfaces ethernet eth4 firewall in name WAN_IN
+set interfaces ethernet eth4 firewall local name WAN_LOCAL
+
+# DNS auch auf eth0
+set service dns forwarding listen-on eth0
+
+commit
+save
+
+exit

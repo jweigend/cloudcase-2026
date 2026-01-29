@@ -1,0 +1,82 @@
+#!/bin/vbash
+# EdgeRouter X Konfiguration für Cloudkoffer
+# 
+# ALLE Ports eth0-eth3 als Switch mit DHCP
+# eth4 als WAN
+#
+# WICHTIG: Alles in einem Commit!
+
+source /opt/vyatta/etc/functions/script-template
+
+configure
+
+# ============================================
+# Firewall-Regeln für WAN
+# ============================================
+set firewall name WAN_IN default-action drop
+set firewall name WAN_IN rule 10 action accept
+set firewall name WAN_IN rule 10 state established enable
+set firewall name WAN_IN rule 10 state related enable
+
+set firewall name WAN_LOCAL default-action drop
+set firewall name WAN_LOCAL rule 10 action accept
+set firewall name WAN_LOCAL rule 10 state established enable
+set firewall name WAN_LOCAL rule 10 state related enable
+
+# ============================================
+# Switch: eth0-eth3 zusammen mit IP auf switch0
+# ============================================
+delete interfaces ethernet eth0 address
+set interfaces switch switch0 address 192.168.1.1/24
+set interfaces switch switch0 description "LAN"
+set interfaces switch switch0 switch-port interface eth0
+set interfaces switch switch0 switch-port interface eth1
+set interfaces switch switch0 switch-port interface eth2
+set interfaces switch switch0 switch-port interface eth3
+set interfaces switch switch0 switch-port vlan-aware disable
+
+# ============================================
+# WAN: eth4 mit DHCP
+# ============================================
+set interfaces ethernet eth4 description "WAN"
+set interfaces ethernet eth4 address dhcp
+set interfaces ethernet eth4 firewall in name WAN_IN
+set interfaces ethernet eth4 firewall local name WAN_LOCAL
+
+# ============================================
+# DHCP-Server (192.168.1.110 - 254)
+# ============================================
+set service dhcp-server disabled false
+set service dhcp-server shared-network-name LAN authoritative enable
+set service dhcp-server shared-network-name LAN subnet 192.168.1.0/24 default-router 192.168.1.1
+set service dhcp-server shared-network-name LAN subnet 192.168.1.0/24 dns-server 192.168.1.1
+set service dhcp-server shared-network-name LAN subnet 192.168.1.0/24 start 192.168.1.110 stop 192.168.1.254
+set service dhcp-server shared-network-name LAN subnet 192.168.1.0/24 lease 86400
+
+# ============================================
+# DNS Forwarding
+# ============================================
+set service dns forwarding listen-on switch0
+set service dns forwarding cache-size 500
+set service dns forwarding name-server 8.8.8.8
+set service dns forwarding name-server 1.1.1.1
+
+# ============================================
+# NAT (Masquerade für Internet)
+# ============================================
+set service nat rule 5010 outbound-interface eth4
+set service nat rule 5010 type masquerade
+
+# ============================================
+# System
+# ============================================
+set system host-name cloudkoffer-router
+set system time-zone Europe/Berlin
+
+# ============================================
+# COMMIT - Alles auf einmal!
+# ============================================
+commit
+save
+
+exit
