@@ -1,9 +1,9 @@
 #cloud-config
 #
 # Basis-Konfiguration für alle Nodes
+# Idempotent: Pakete werden nur installiert wenn fehlen
 #
 
-# Pakete installieren
 packages:
   - openjdk-17-jdk
   - curl
@@ -13,19 +13,8 @@ packages:
   - vim
   - tmux
 
-# Swap deaktivieren
-swap:
-  filename: /swapfile
-  size: 0
-
-# Firewall deaktivieren
-runcmd:
-  - ufw disable || true
-  - swapoff -a
-  - sed -i '/swap/d' /etc/fstab
-
-# Kernel-Parameter für Big Data
 write_files:
+  # Kernel-Parameter für Big Data
   - path: /etc/sysctl.d/99-cloudkoffer.conf
     content: |
       # Netzwerk
@@ -39,9 +28,20 @@ write_files:
       # Datei-Deskriptoren
       fs.file-max = 2097152
     
+  # Limits für cloudadmin
   - path: /etc/security/limits.d/99-cloudkoffer.conf
     content: |
       cloudadmin soft nofile 65535
       cloudadmin hard nofile 65535
       cloudadmin soft nproc 65535
       cloudadmin hard nproc 65535
+
+runcmd:
+  # Firewall deaktivieren (idempotent)
+  - ufw disable || true
+  # Swap deaktivieren (idempotent)
+  - swapoff -a || true
+  # Swap aus fstab entfernen (idempotent mit grep-check)
+  - grep -q swap /etc/fstab && sed -i '/swap/d' /etc/fstab || true
+  # Sysctl neu laden
+  - sysctl --system || true

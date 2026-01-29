@@ -1,6 +1,7 @@
 #cloud-config
 #
-# ZooKeeper Installation (NUC1-3)
+# ZooKeeper Installation (node1-3)
+# Idempotent: Download nur wenn nicht vorhanden
 #
 
 write_files:
@@ -13,9 +14,9 @@ write_files:
       dataDir=/data/zookeeper
       clientPort=2181
       
-      server.1=nuc1:2888:3888
-      server.2=nuc2:2888:3888
-      server.3=nuc3:2888:3888
+      server.1=node1.cloud.local:2888:3888
+      server.2=node2.cloud.local:2888:3888
+      server.3=node3.cloud.local:2888:3888
       
       autopurge.snapRetainCount=3
       autopurge.purgeInterval=24
@@ -48,28 +49,32 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
-  # ZooKeeper herunterladen und installieren
+  # Verzeichnisse erstellen (idempotent)
+  - mkdir -p /opt/zookeeper/conf /data/zookeeper
+  - chown -R cloudadmin:cloudadmin /data/zookeeper
+  
+  # ZooKeeper installieren (nur wenn nicht vorhanden)
   - |
-    ZK_VERSION="3.9.2"
-    if [ ! -d /opt/zookeeper ]; then
+    if [ ! -f /opt/zookeeper/bin/zkServer.sh ]; then
+      ZK_VERSION="3.9.2"
       cd /tmp
       wget -q "https://downloads.apache.org/zookeeper/zookeeper-${ZK_VERSION}/apache-zookeeper-${ZK_VERSION}-bin.tar.gz"
       tar -xzf apache-zookeeper-${ZK_VERSION}-bin.tar.gz
-      mv apache-zookeeper-${ZK_VERSION}-bin /opt/zookeeper
+      cp -r apache-zookeeper-${ZK_VERSION}-bin/* /opt/zookeeper/
       chown -R cloudadmin:cloudadmin /opt/zookeeper
-      rm apache-zookeeper-${ZK_VERSION}-bin.tar.gz
+      rm -rf apache-zookeeper-${ZK_VERSION}-bin*
     fi
   
-  # myid setzen basierend auf Hostname
+  # myid setzen basierend auf Hostname (idempotent)
   - |
     HOSTNAME=$(hostname)
     case $HOSTNAME in
-      nuc1) echo "1" > /data/zookeeper/myid ;;
-      nuc2) echo "2" > /data/zookeeper/myid ;;
-      nuc3) echo "3" > /data/zookeeper/myid ;;
+      node1) echo "1" > /data/zookeeper/myid ;;
+      node2) echo "2" > /data/zookeeper/myid ;;
+      node3) echo "3" > /data/zookeeper/myid ;;
     esac
     chown cloudadmin:cloudadmin /data/zookeeper/myid
   
-  # Service aktivieren
+  # Service aktivieren (idempotent)
   - systemctl daemon-reload
   - systemctl enable zookeeper

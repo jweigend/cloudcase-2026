@@ -1,6 +1,7 @@
 #cloud-config
 #
-# Solr Cloud Installation (alle Nodes)
+# Solr Cloud Installation (node1-4)
+# Idempotent: Download nur wenn nicht vorhanden
 #
 
 write_files:
@@ -42,18 +43,22 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
-  # Solr herunterladen und installieren
+  # Verzeichnisse erstellen (idempotent)
+  - mkdir -p /opt/solr/bin /data/solr
+  - chown -R cloudadmin:cloudadmin /data/solr
+  
+  # Solr installieren (nur wenn nicht vorhanden)
   - |
-    SOLR_VERSION="9.5.0"
-    if [ ! -d /opt/solr ]; then
+    if [ ! -f /opt/solr/bin/solr ]; then
+      SOLR_VERSION="9.5.0"
       cd /tmp
       wget -q "https://downloads.apache.org/solr/solr/${SOLR_VERSION}/solr-${SOLR_VERSION}.tgz"
       tar -xzf solr-${SOLR_VERSION}.tgz
-      mv solr-${SOLR_VERSION} /opt/solr
+      cp -r solr-${SOLR_VERSION}/* /opt/solr/
       chown -R cloudadmin:cloudadmin /opt/solr
-      rm solr-${SOLR_VERSION}.tgz
+      rm -rf solr-${SOLR_VERSION}*
     fi
   
-  - chown -R cloudadmin:cloudadmin /data/solr
+  # Service aktivieren (idempotent)
   - systemctl daemon-reload
   - systemctl enable solr

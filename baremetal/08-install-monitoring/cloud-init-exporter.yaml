@@ -1,6 +1,7 @@
 #cloud-config
 #
-# Node Exporter Installation (NUC2-5)
+# Node Exporter Installation (alle Nodes)
+# Idempotent: Download nur wenn nicht vorhanden
 #
 
 write_files:
@@ -20,9 +21,10 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
+  # Node Exporter installieren (nur wenn nicht vorhanden)
   - |
-    NE_VERSION="1.7.0"
     if [ ! -f /usr/local/bin/node_exporter ]; then
+      NE_VERSION="1.7.0"
       cd /tmp
       wget -q "https://github.com/prometheus/node_exporter/releases/download/v${NE_VERSION}/node_exporter-${NE_VERSION}.linux-amd64.tar.gz"
       tar -xzf node_exporter-${NE_VERSION}.linux-amd64.tar.gz
@@ -30,5 +32,7 @@ runcmd:
       rm -rf node_exporter-${NE_VERSION}.linux-amd64*
     fi
   
+  # Service aktivieren (idempotent)
   - systemctl daemon-reload
   - systemctl enable node_exporter
+  - systemctl restart node_exporter

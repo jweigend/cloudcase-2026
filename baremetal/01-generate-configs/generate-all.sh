@@ -74,9 +74,21 @@ autoinstall:
   
   late-commands:
     - curtin in-target -- systemctl enable ssh
-    # Data-Verzeichnisse (chown wird im Post-Install gemacht)
+    # NOPASSWD für cloudadmin (für automatisiertes Post-Install)
+    - echo 'cloudadmin ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/cloudadmin
+    - chmod 440 /target/etc/sudoers.d/cloudadmin
+    # Data-Verzeichnisse
     - mkdir -p /target/data/solr /target/data/spark /target/data/zookeeper /target/data/prometheus
     - chown -R 1000:1000 /target/data
+    # systemd-resolved deaktivieren (node0 ist DNS-Server)
+    - curtin in-target -- systemctl disable systemd-resolved
+    - rm -f /target/etc/resolv.conf
+    # resolv.conf mit node0 als DNS
+    - |
+      cat > /target/etc/resolv.conf << RESOLV
+      nameserver 192.168.1.100
+      search cloud.local
+      RESOLV
     # /etc/hosts mit cloud.local Domain
     - |
       cat >> /target/etc/hosts << HOSTS

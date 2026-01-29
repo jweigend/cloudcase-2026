@@ -1,13 +1,11 @@
 #!/bin/bash
 #
-# Setzt Hostname und wendet Cloud-Init Konfiguration an
+# Wendet Cloud-Init Konfiguration per SSH an (idempotent)
 #
 # Verwendung: ./apply-cloud-init.sh <IP_ODER_HOSTNAME>
-# Beispiel:   ./apply-cloud-init.sh 192.168.0.100
-#            ./apply-cloud-init.sh cloudkoffer-node
+# Beispiel:   ./apply-cloud-init.sh 192.168.1.100
 #
-# Das Skript ermittelt den Node-Namen basierend auf der IP und
-# wendet die passenden Cloud-Init Dateien an.
+# Nutzt "cloud-init single" für idempotente Ausführung einzelner Module.
 #
 
 set -e
@@ -23,14 +21,14 @@ if [[ -z "$TARGET" ]]; then
     echo ""
     echo "Beispiele:"
     echo "  $0 192.168.1.100"
-    echo "  $0 node   (wenn per DHCP erreichbar)"
+    echo "  $0 node0"
     echo ""
     echo "IP-Mapping:"
-    echo "  192.168.1.100 → node0 (DNS-Server)"
-    echo "  192.168.1.101 → node1"
-    echo "  192.168.1.102 → node2"
-    echo "  192.168.1.103 → node3"
-    echo "  192.168.1.104 → node4"
+    echo "  192.168.1.100 → node0 (DNS/Monitoring)"
+    echo "  192.168.1.101 → node1 (ZK, Solr, Spark-Master)"
+    echo "  192.168.1.102 → node2 (ZK, Solr, Spark-Worker)"
+    echo "  192.168.1.103 → node3 (ZK, Solr, Spark-Worker)"
+    echo "  192.168.1.104 → node4 (Solr, Spark-Worker)"
     exit 1
 fi
 
@@ -67,7 +65,7 @@ echo "Node-Name: $NODE_NAME"
 echo ""
 
 # Hostname setzen
-echo "[1/3] Hostname setzen..."
+echo "[1/4] Hostname setzen..."
 ssh "${USERNAME}@${TARGET}" "sudo hostnamectl set-hostname $NODE_NAME"
 
 # Cloud-Init Dateien ermitteln
@@ -96,45 +94,83 @@ if [[ "$NODE_NAME" =~ ^node[2-4]$ ]]; then
     CLOUD_INIT_FILES+=("$BASE_DIR/07-install-spark/cloud-init-worker.yaml")
 fi
 
-# Monitoring (node0)
+# DNS-Server (node0)
 if [[ "$NODE_NAME" == "node0" ]]; then
     CLOUD_INIT_FILES+=("$SCRIPT_DIR/cloud-init/dns-server.yaml")
+fi
+
+# Prometheus + Grafana (node0)
+if [[ "$NODE_NAME" == "node0" ]]; then
     CLOUD_INIT_FILES+=("$BASE_DIR/08-install-monitoring/cloud-init-prometheus.yaml")
 fi
 
-# Node Exporter (NUC2-5)
-if [[ "$NODE_NAME" != "nuc1" ]]; then
-    CLOUD_INIT_FILES+=("$BASE_DIR/08-install-monitoring/cloud-init-exporter.yaml")
-fi
+# Node Exporter (alle Nodes)
+CLOUD_INIT_FILES+=("$BASE_DIR/08-install-monitoring/cloud-init-exporter.yaml")
 
-echo "[2/3] Cloud-Init Dateien für $NODE_NAME:"
+echo "[2/4] Cloud-Init Dateien für $NODE_NAME:"
 for f in "${CLOUD_INIT_FILES[@]}"; do
-    echo "      - $(basename "$f")"
+    if [[ -f "$f" ]]; then
+        echo "      ✓ $(basename "$f")"
+    else
+        echo "      ✗ $(basename "$f") (FEHLT!)"
+    fi
 done
 echo ""
 
-# Dateien kopieren
-ssh "${USERNAME}@${TARGET}" "sudo mkdir -p /etc/cloud/cloud.cfg.d"
+# Dateien einzeln kopieren und ausführen
+echo "[3/4] Cloud-Init Module ausführen..."
 
+# Erst NoCloud Datasource setzen (einmalig)
+ssh "${USERNAME}@${TARGET}" "
+    sudo mkdir -p /etc/cloud/cloud.cfg.d
+    echo 'datasource_list: [ NoCloud, None ]' | sudo tee /etc/cloud/cloud.cfg.d/99-datasource.cfg > /dev/null
+"
+
+# Jede Datei einzeln verarbeiten
 for f in "${CLOUD_INIT_FILES[@]}"; do
-    if [[ -f "$f" ]]; then
-        BASENAME=$(basename "$f")
-        scp -q "$f" "${USERNAME}@${TARGET}:/tmp/${BASENAME}"
-        ssh "${USERNAME}@${TARGET}" "sudo mv /tmp/${BASENAME} /etc/cloud/cloud.cfg.d/"
+    if [[ ! -f "$f" ]]; then
+        echo "  SKIP: $(basename "$f") (nicht gefunden)"
+        continue
     fi
+    
+    BASENAME=$(basename "$f")
+    echo "  → $BASENAME"
+    
+    # Datei kopieren
+    scp -q "$f" "${USERNAME}@${TARGET}:/tmp/cloud-config.yaml"
+    
+    # Cloud-Init single Module ausführen
+    ssh "${USERNAME}@${TARGET}" "
+        # Config als aktive Datei setzen
+        sudo cp /tmp/cloud-config.yaml /etc/cloud/cloud.cfg.d/99-current.cfg
+        
+        # Module einzeln ausführen (idempotent mit --frequency=always)
+        sudo cloud-init single --name write_files --frequency always 2>/dev/null || true
+        sudo cloud-init single --name package_update_upgrade_install --frequency always 2>/dev/null || true
+        sudo cloud-init single --name runcmd --frequency always 2>/dev/null || true
+        
+        # Aufräumen
+        sudo rm -f /etc/cloud/cloud.cfg.d/99-current.cfg
+    "
 done
 
-# Cloud-Init ausführen
-echo "[3/3] Cloud-Init ausführen..."
-ssh "${USERNAME}@${TARGET}" "sudo cloud-init clean && sudo cloud-init init && sudo cloud-init modules --mode=config && sudo cloud-init modules --mode=final"
+# Aufräumen auf Remote
+ssh "${USERNAME}@${TARGET}" "rm -f /tmp/cloud-config.yaml"
+
+echo ""
+echo "[4/4] Services prüfen..."
+
+# Services Status ausgeben
+ssh "${USERNAME}@${TARGET}" '
+    echo ""
+    echo "=== Service Status ==="
+    
+    for svc in dnsmasq prometheus grafana-server zookeeper solr spark-master spark-worker node_exporter; do
+        if systemctl is-enabled "$svc" 2>/dev/null | grep -q enabled; then
+            printf "  %-16s %s\n" "$svc:" "$(systemctl is-active $svc)"
+        fi
+    done
+'
 
 echo ""
 echo "=== Fertig: $NODE_NAME ($IP) ==="
-echo ""
-echo "Services aktiviert (starten mit systemctl start):"
-[[ "$NODE_NAME" =~ ^nuc[1-3]$ ]] && echo "  - zookeeper"
-echo "  - solr"
-[[ "$NODE_NAME" == "nuc2" ]] && echo "  - spark-master"
-[[ "$NODE_NAME" =~ ^nuc[3-5]$ ]] && echo "  - spark-worker"
-[[ "$NODE_NAME" == "nuc1" ]] && echo "  - prometheus, grafana-server"
-echo "  - node_exporter"
