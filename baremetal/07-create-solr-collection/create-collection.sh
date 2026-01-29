@@ -8,7 +8,7 @@
 set -e
 
 COLLECTION="${1:-demo}"
-SOLR_HOST="nuc1:8983"
+SOLR_HOST="node1:8983"
 
 echo "=== Solr Collection: $COLLECTION ==="
 echo ""

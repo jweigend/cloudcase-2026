@@ -65,23 +65,23 @@ ansible all -i inventory.yml -m ping
 
 ## Komponenten
 
-### ZooKeeper (3.9.2)
+### ZooKeeper (3.9.4)
 - **Nodes:** node1, node2, node3
 - **Client Port:** 2181
 - **Admin Port:** 8080
 - **Config:** `/opt/zookeeper/conf/zoo.cfg`
 
-### Solr Cloud (9.7.0)
+### Solr Cloud (9.10.1)
 - **Nodes:** node1, node2, node3, node4
 - **Port:** 8983
 - **Admin UI:** `http://nodeX:8983/solr`
 - **ZK-Verbindung:** `node1:2181,node2:2181,node3:2181/solr`
 
-### Spark (3.5.4)
+### Spark (3.5.8)
 - **Master:** node1:7077
 - **Workers:** node2, node3, node4
-- **Web UI Master:** `http://node1:8080`
-- **Web UI Workers:** `http://nodeX:8081`
+- **Web UI Master:** `http://node1:8081`
+- **Web UI Workers:** `http://node2:8081`, `http://node3:8081`, `http://node4:8081`
 
 ### Monitoring
 - **Prometheus:** node0:9090
