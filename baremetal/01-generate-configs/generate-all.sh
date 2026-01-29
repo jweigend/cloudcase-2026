@@ -74,9 +74,9 @@ autoinstall:
   
   late-commands:
     - curtin in-target -- systemctl enable ssh
-    # Data-Verzeichnisse
-    - curtin in-target -- mkdir -p /data/solr /data/spark /data/zookeeper /data/prometheus
-    - curtin in-target -- chown -R cloudadmin:cloudadmin /data
+    # Data-Verzeichnisse (chown wird im Post-Install gemacht)
+    - mkdir -p /target/data/solr /target/data/spark /target/data/zookeeper /target/data/prometheus
+    - chown -R 1000:1000 /target/data
     # /etc/hosts mit cloud.local Domain
     - |
       cat >> /target/etc/hosts << HOSTS
