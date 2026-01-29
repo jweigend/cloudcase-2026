@@ -3,6 +3,17 @@
 # Basis-Konfiguration für alle Nodes
 #
 
+# Pakete installieren
+packages:
+  - openjdk-17-jdk
+  - curl
+  - wget
+  - netcat-openbsd
+  - htop
+  - vim
+  - tmux
+  - dnsmasq
+
 # Swap deaktivieren
 swap:
   filename: /swapfile

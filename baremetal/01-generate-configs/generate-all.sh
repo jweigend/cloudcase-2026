@@ -68,16 +68,9 @@ autoinstall:
     layout:
       name: direct
   
+  # Nur minimale Pakete - Rest wird im Post-Install installiert
   packages:
     - openssh-server
-    - openjdk-17-jdk
-    - curl
-    - wget
-    - netcat-openbsd
-    - htop
-    - vim
-    - tmux
-    - dnsmasq
   
   late-commands:
     - curtin in-target -- systemctl enable ssh
