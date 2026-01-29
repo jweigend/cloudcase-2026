@@ -10,7 +10,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
-ISO_FILE="$BASE_DIR/01-create-iso/output/cloudkoffer.iso"
+ISO_FILE="$BASE_DIR/02-create-iso/output/cloudkoffer.iso"
 
 USB_DEVICE="${1:-}"
 
