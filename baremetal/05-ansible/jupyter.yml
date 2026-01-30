@@ -71,6 +71,38 @@
       become_user: "{{ jupyter_user }}"
 
     # ============================================================
+    # Spark Installation (fuer SPARK_HOME)
+    # ============================================================
+    - name: Check if Spark is installed
+      ansible.builtin.stat:
+        path: "{{ spark_home }}/bin/spark-submit"
+      register: spark_installed
+
+    - name: Download Spark
+      ansible.builtin.get_url:
+        url: "https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop3.tgz"
+        dest: "/tmp/spark-{{ spark_version }}.tgz"
+        mode: '0644'
+      when: not spark_installed.stat.exists
+
+    - name: Extract Spark
+      ansible.builtin.unarchive:
+        src: "/tmp/spark-{{ spark_version }}.tgz"
+        dest: "{{ spark_home }}"
+        remote_src: yes
+        extra_opts: ['--strip-components=1']
+        creates: "{{ spark_home }}/bin/spark-submit"
+      when: not spark_installed.stat.exists
+
+    - name: Set Spark directory ownership
+      ansible.builtin.file:
+        path: "{{ spark_home }}"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        recurse: yes
+        state: directory
+
+    # ============================================================
     # Konfiguration
     # ============================================================
     - name: Deploy JupyterLab configuration
