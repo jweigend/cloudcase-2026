@@ -1,0 +1,292 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# NYC Taxi Data Analysis\n",
+        "\n",
+        "Dieses Notebook laedt echte NYC Yellow Taxi Fahrten-Daten (~100MB) und fuehrt Aggregationen mit Spark durch.\n",
+        "\n",
+        "**Datenquelle:** [NYC Taxi & Limousine Commission](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)\n",
+        "\n",
+        "**Cluster-Info:**\n",
+        "- Spark Master: `spark://node1.cloud.local:7077`\n",
+        "- Workers: node1-node4"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "from pyspark.sql import SparkSession\n",
+        "from pyspark.sql import functions as F\n",
+        "from pyspark.sql.types import *\n",
+        "\n",
+        "# Spark Session mit mehr Speicher fuer groessere Daten\n",
+        "spark = SparkSession.builder \\\n",
+        "    .appName('NYC Taxi Analysis') \\\n",
+        "    .master('spark://node1.cloud.local:7077') \\\n",
+        "    .config('spark.executor.memory', '1g') \\\n",
+        "    .config('spark.driver.memory', '1g') \\\n",
+        "    .getOrCreate()\n",
+        "\n",
+        "print(f'Spark Version: {spark.version}')\n",
+        "print(f'Executors: {spark.sparkContext.defaultParallelism}')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# NYC Yellow Taxi Daten herunterladen (Parquet Format, ~45MB pro Monat)\n",
+        "# Wir laden 2 Monate fuer ca. 90-100MB\n",
+        "\n",
+        "import urllib.request\n",
+        "import os\n",
+        "\n",
+        "DATA_DIR = '/data/jupyter/datasets/nyc-taxi'\n",
+        "os.makedirs(DATA_DIR, exist_ok=True)\n",
+        "\n",
+        "# Parquet-Dateien von NYC TLC\n",
+        "files = [\n",
+        "    ('yellow_tripdata_2023-01.parquet', 'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2023-01.parquet'),\n",
+        "    ('yellow_tripdata_2023-02.parquet', 'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2023-02.parquet'),\n",
+        "]\n",
+        "\n",
+        "for filename, url in files:\n",
+        "    filepath = os.path.join(DATA_DIR, filename)\n",
+        "    if not os.path.exists(filepath):\n",
+        "        print(f'Downloading {filename}...')\n",
+        "        urllib.request.urlretrieve(url, filepath)\n",
+        "        size_mb = os.path.getsize(filepath) / (1024 * 1024)\n",
+        "        print(f'  -> {size_mb:.1f} MB')\n",
+        "    else:\n",
+        "        size_mb = os.path.getsize(filepath) / (1024 * 1024)\n",
+        "        print(f'{filename} already exists ({size_mb:.1f} MB)')\n",
+        "\n",
+        "total_size = sum(os.path.getsize(os.path.join(DATA_DIR, f)) for f, _ in files) / (1024 * 1024)\n",
+        "print(f'\\nTotal: {total_size:.1f} MB')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Daten mit Pandas laden (laeuft auf Driver) und in Spark konvertieren\n",
+        "# Dies ist noetig, da die Dateien nur auf node0 liegen, nicht auf den Workers\n",
+        "import pandas as pd\n",
+        "import glob\n",
+        "\n",
+        "print('Lade Parquet-Dateien mit Pandas...')\n",
+        "parquet_files = glob.glob(f'{DATA_DIR}/*.parquet')\n",
+        "\n",
+        "# Nur relevante Spalten laden und samplen fuer Performance\n",
+        "COLUMNS = ['tpep_pickup_datetime', 'tpep_dropoff_datetime', 'passenger_count',\n",
+        "           'trip_distance', 'fare_amount', 'tip_amount', 'total_amount']\n",
+        "\n",
+        "dfs = []\n",
+        "for f in parquet_files:\n",
+        "    df_part = pd.read_parquet(f, columns=COLUMNS)\n",
+        "    # Sample 10% fuer schnellere Verarbeitung\n",
+        "    df_part = df_part.sample(frac=0.1, random_state=42)\n",
+        "    dfs.append(df_part)\n",
+        "    print(f'  {f}: {len(df_part):,} Zeilen (10% Sample)')\n",
+        "\n",
+        "pdf = pd.concat(dfs, ignore_index=True)\n",
+        "print(f'\\nPandas DataFrame: {len(pdf):,} Zeilen total')\n",
+        "\n",
+        "# In Spark DataFrame konvertieren und auf Cluster verteilen\n",
+        "print('Konvertiere zu Spark DataFrame...')\n",
+        "df = spark.createDataFrame(pdf)\n",
+        "df.cache()  # Im Cluster-Speicher halten\n",
+        "\n",
+        "# Trigger caching\n",
+        "count = df.count()\n",
+        "print(f'\\nSpark DataFrame: {count:,} Zeilen auf Cluster verteilt')\n",
+        "print(f'Partitionen: {df.rdd.getNumPartitions()}')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Schema anzeigen\n",
+        "df.printSchema()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Erste Zeilen anzeigen\n",
+        "df.show(10, truncate=False)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Aggregation 1: Durchschnittswerte\n",
+        "print('=== Durchschnittswerte ===\\n')\n",
+        "\n",
+        "stats = df.agg(\n",
+        "    F.avg('trip_distance').alias('avg_distance_miles'),\n",
+        "    F.avg('fare_amount').alias('avg_fare'),\n",
+        "    F.avg('tip_amount').alias('avg_tip'),\n",
+        "    F.avg('total_amount').alias('avg_total'),\n",
+        "    F.avg('passenger_count').alias('avg_passengers')\n",
+        ").collect()[0]\n",
+        "\n",
+        "print(f'Durchschnittliche Distanz:  {stats.avg_distance_miles:.2f} Meilen')\n",
+        "print(f'Durchschnittlicher Fahrpreis: ${stats.avg_fare:.2f}')\n",
+        "print(f'Durchschnittliches Trinkgeld: ${stats.avg_tip:.2f}')\n",
+        "print(f'Durchschnittlicher Gesamtbetrag: ${stats.avg_total:.2f}')\n",
+        "print(f'Durchschnittliche Passagiere: {stats.avg_passengers:.1f}')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Aggregation 2: Fahrten pro Wochentag\n",
+        "print('=== Fahrten pro Wochentag ===\\n')\n",
+        "\n",
+        "weekday_names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']\n",
+        "\n",
+        "trips_by_weekday = df \\\n",
+        "    .withColumn('weekday', F.dayofweek('tpep_pickup_datetime')) \\\n",
+        "    .groupBy('weekday') \\\n",
+        "    .agg(\n",
+        "        F.count('*').alias('trips'),\n",
+        "        F.avg('total_amount').alias('avg_amount'),\n",
+        "        F.avg('trip_distance').alias('avg_distance')\n",
+        "    ) \\\n",
+        "    .orderBy('weekday')\n",
+        "\n",
+        "trips_by_weekday.show()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Aggregation 3: Fahrten pro Stunde\n",
+        "print('=== Fahrten pro Stunde ===\\n')\n",
+        "\n",
+        "trips_by_hour = df \\\n",
+        "    .withColumn('hour', F.hour('tpep_pickup_datetime')) \\\n",
+        "    .groupBy('hour') \\\n",
+        "    .agg(\n",
+        "        F.count('*').alias('trips'),\n",
+        "        F.avg('total_amount').alias('avg_amount')\n",
+        "    ) \\\n",
+        "    .orderBy('hour')\n",
+        "\n",
+        "trips_by_hour.show(24)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Aggregation 4: Top 10 laengste Fahrten\n",
+        "print('=== Top 10 laengste Fahrten ===\\n')\n",
+        "\n",
+        "df.select(\n",
+        "    'tpep_pickup_datetime',\n",
+        "    'trip_distance',\n",
+        "    'fare_amount',\n",
+        "    'total_amount'\n",
+        ") \\\n",
+        ".filter(F.col('trip_distance') < 500) \\\n",
+        ".orderBy(F.desc('trip_distance')) \\\n",
+        ".show(10)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Aggregation 5: Umsatz-Statistiken\n",
+        "print('=== Umsatz-Statistiken ===\\n')\n",
+        "\n",
+        "revenue = df.agg(\n",
+        "    F.sum('fare_amount').alias('total_fares'),\n",
+        "    F.sum('tip_amount').alias('total_tips'),\n",
+        "    F.sum('total_amount').alias('total_revenue'),\n",
+        "    F.count('*').alias('total_trips')\n",
+        ").collect()[0]\n",
+        "\n",
+        "print(f'Gesamtumsatz Fahrpreise: ${revenue.total_fares:,.2f}')\n",
+        "print(f'Gesamtumsatz Trinkgeld:  ${revenue.total_tips:,.2f}')\n",
+        "print(f'Gesamtumsatz:            ${revenue.total_revenue:,.2f}')\n",
+        "print(f'Anzahl Fahrten:          {revenue.total_trips:,}')\n",
+        "print(f'\\nUmsatz pro Fahrt:        ${revenue.total_revenue / revenue.total_trips:.2f}')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Aggregation 6: Verteilung nach Passagieranzahl\n",
+        "print('=== Verteilung nach Passagieranzahl ===\\n')\n",
+        "\n",
+        "df.groupBy('passenger_count') \\\n",
+        "    .agg(\n",
+        "        F.count('*').alias('trips'),\n",
+        "        F.round(F.avg('total_amount'), 2).alias('avg_amount')\n",
+        "    ) \\\n",
+        "    .filter(F.col('passenger_count').between(1, 6)) \\\n",
+        "    .orderBy('passenger_count') \\\n",
+        "    .show()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Spark Session beenden\n",
+        "spark.stop()\n",
+        "print('Spark Session beendet.')"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.12"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 4
+}

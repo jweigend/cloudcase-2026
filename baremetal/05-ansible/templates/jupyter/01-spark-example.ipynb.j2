@@ -1,0 +1,90 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Spark Cluster Demo\n",
+        "\n",
+        "Dieses Notebook zeigt, wie man sich mit dem Spark-Cluster verbindet.\n",
+        "\n",
+        "**Cluster-Info:**\n",
+        "- Spark Master: `spark://node1.cloud.local:7077`\n",
+        "- Spark Master UI: http://node1.cloud.local:8082\n",
+        "- Spark Version: {{ spark_version }}"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "from pyspark.sql import SparkSession\n",
+        "\n",
+        "# Verbindung zum Spark Master\n",
+        "spark = SparkSession.builder \\\n",
+        "    .appName('JupyterDemo') \\\n",
+        "    .master('spark://node1.cloud.local:7077') \\\n",
+        "    .getOrCreate()\n",
+        "\n",
+        "print(f'Spark Version: {spark.version}')\n",
+        "print(f'Spark Master: {spark.sparkContext.master}')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Einfaches DataFrame Beispiel\n",
+        "data = [\n",
+        "    ('Alice', 34),\n",
+        "    ('Bob', 45),\n",
+        "    ('Charlie', 29)\n",
+        "]\n",
+        "\n",
+        "df = spark.createDataFrame(data, ['Name', 'Age'])\n",
+        "df.show()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Aggregationen\n",
+        "from pyspark.sql import functions as F\n",
+        "\n",
+        "print(f\"Durchschnittsalter: {df.agg(F.avg('Age')).collect()[0][0]:.1f}\")\n",
+        "print(f\"Aelteste Person: {df.agg(F.max('Age')).collect()[0][0]}\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Spark Session beenden\n",
+        "spark.stop()\n",
+        "print('Spark Session beendet.')"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.12"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 4
+}

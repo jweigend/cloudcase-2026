@@ -1,0 +1,88 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Solr Cloud Demo\n",
+        "\n",
+        "Dieses Notebook zeigt die Interaktion mit dem Solr Cluster.\n",
+        "\n",
+        "**Cluster-Info:**\n",
+        "- Solr UI: http://node1.cloud.local:8983/solr\n",
+        "- Collection: `demo`"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import pysolr\n",
+        "\n",
+        "# Verbindung zu Solr Cloud\n",
+        "SOLR_URL = 'http://node1.cloud.local:8983/solr/demo'\n",
+        "\n",
+        "solr = pysolr.Solr(SOLR_URL, always_commit=True)\n",
+        "print(f'Verbunden mit: {SOLR_URL}')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Dokumente hinzufuegen\n",
+        "docs = [\n",
+        "    {'id': '1', 'title': 'Erstes Dokument', 'content': 'Dies ist ein Testdokument fuer die Suche'},\n",
+        "    {'id': '2', 'title': 'Zweites Dokument', 'content': 'Noch ein Beispiel mit anderem Inhalt'},\n",
+        "    {'id': '3', 'title': 'Drittes Dokument', 'content': 'Weitere Testdaten fuer Solr'}\n",
+        "]\n",
+        "\n",
+        "solr.add(docs)\n",
+        "print(f'{len(docs)} Dokumente hinzugefuegt')"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Volltextsuche\n",
+        "results = solr.search('content:test*')\n",
+        "\n",
+        "print(f'Gefunden: {len(results)} Dokumente\\n')\n",
+        "for doc in results:\n",
+        "    print(f\"  ID: {doc['id']} - {doc['title']}\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "# Alle Dokumente anzeigen\n",
+        "results = solr.search('*:*', rows=100)\n",
+        "\n",
+        "print(f'Gesamt: {len(results)} Dokumente in Collection')"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.12"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 4
+}

@@ -1,0 +1,29 @@
+[Unit]
+Description=JupyterLab Server
+After=network.target
+
+[Service]
+Type=simple
+User={{ jupyter_user }}
+Group={{ jupyter_user }}
+
+# Java & Spark
+Environment="JAVA_HOME={{ java_home }}"
+Environment="SPARK_HOME={{ spark_home }}"
+
+# PySpark Python Paths
+# PYSPARK_PYTHON: Used by Workers/Executors (must exist on all cluster nodes)
+Environment="PYSPARK_PYTHON=/usr/bin/python3"
+# PYSPARK_DRIVER_PYTHON: Used by Driver (Jupyter venv on this node)
+Environment="PYSPARK_DRIVER_PYTHON={{ jupyter_home }}/venv/bin/python"
+
+# PATH
+Environment="PATH={{ jupyter_home }}/venv/bin:{{ spark_home }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+ExecStart={{ jupyter_home }}/venv/bin/jupyter lab --config=/home/{{ jupyter_user }}/.jupyter/jupyter_lab_config.py
+WorkingDirectory={{ jupyter_data }}/notebooks
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -5,7 +5,6 @@
 #   ansible-playbook -i inventory.yml jupyter.yml
 #
 # JupyterLab ist erreichbar unter: http://node0.cloud.local:8888
-#
 
 - name: Install JupyterLab on monitoring node
   hosts: monitoring
@@ -15,10 +14,13 @@
     jupyter_data: /data/jupyter
     jupyter_port: 8888
     spark_home: /opt/spark
-    
+
   tasks:
-    - name: Install Python dependencies
-      apt:
+    # ============================================================
+    # System-Pakete
+    # ============================================================
+    - name: Install system dependencies
+      ansible.builtin.apt:
         name:
           - python3-pip
           - python3-venv
@@ -27,8 +29,11 @@
         state: present
         update_cache: yes
 
+    # ============================================================
+    # Verzeichnisse
+    # ============================================================
     - name: Create Jupyter directories
-      file:
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         owner: "{{ jupyter_user }}"
@@ -38,20 +43,25 @@
         - "{{ jupyter_home }}"
         - "{{ jupyter_data }}"
         - "{{ jupyter_data }}/notebooks"
+        - "/home/{{ jupyter_user }}/.jupyter"
 
+    # ============================================================
+    # Python Virtual Environment
+    # ============================================================
     - name: Create Python virtual environment
-      command: python3 -m venv {{ jupyter_home }}/venv
-      args:
+      ansible.builtin.command:
+        cmd: python3 -m venv {{ jupyter_home }}/venv
         creates: "{{ jupyter_home }}/venv/bin/activate"
       become_user: "{{ jupyter_user }}"
 
-    - name: Install JupyterLab and dependencies
-      pip:
+    - name: Install Python packages
+      ansible.builtin.pip:
         name:
           - jupyterlab
           - notebook
-          - pyspark
+          - "pyspark=={{ spark_version }}"
           - pandas
+          - pyarrow
           - numpy
           - matplotlib
           - pysolr
@@ -60,264 +70,99 @@
         state: present
       become_user: "{{ jupyter_user }}"
 
-    - name: Generate Jupyter config directory
-      file:
-        path: "/home/{{ jupyter_user }}/.jupyter"
+    # ============================================================
+    # Konfiguration
+    # ============================================================
+    - name: Deploy JupyterLab configuration
+      ansible.builtin.template:
+        src: templates/jupyter/jupyter_lab_config.py.j2
+        dest: "/home/{{ jupyter_user }}/.jupyter/jupyter_lab_config.py"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+
+    - name: Deploy systemd service
+      ansible.builtin.template:
+        src: templates/jupyter/jupyterlab.service.j2
+        dest: /etc/systemd/system/jupyterlab.service
+        mode: '0644'
+      notify: Restart JupyterLab
+
+    # ============================================================
+    # Service starten
+    # ============================================================
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Enable and start JupyterLab
+      ansible.builtin.systemd:
+        name: jupyterlab
+        enabled: yes
+        state: started
+
+    # ============================================================
+    # Demo Notebooks
+    # ============================================================
+    - name: Deploy Spark example notebook
+      ansible.builtin.template:
+        src: templates/jupyter/01-spark-example.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/01-spark-example.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: no  # Don't overwrite if user modified
+
+    - name: Deploy Solr example notebook
+      ansible.builtin.template:
+        src: templates/jupyter/02-solr-example.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/02-solr-example.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: no  # Don't overwrite if user modified
+
+    - name: Deploy NYC Taxi analysis notebook
+      ansible.builtin.template:
+        src: templates/jupyter/03-nyc-taxi-analysis.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/03-nyc-taxi-analysis.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: no  # Don't overwrite if user modified
+
+    - name: Create datasets directory
+      ansible.builtin.file:
+        path: "{{ jupyter_data }}/datasets"
         state: directory
         owner: "{{ jupyter_user }}"
         group: "{{ jupyter_user }}"
         mode: '0755'
 
-    - name: Configure JupyterLab
-      copy:
-        dest: "/home/{{ jupyter_user }}/.jupyter/jupyter_lab_config.py"
-        owner: "{{ jupyter_user }}"
-        group: "{{ jupyter_user }}"
-        mode: '0644'
-        content: |
-          # JupyterLab Configuration
-          c.ServerApp.ip = '0.0.0.0'
-          c.ServerApp.port = {{ jupyter_port }}
-          c.ServerApp.open_browser = False
-          c.ServerApp.root_dir = '{{ jupyter_data }}/notebooks'
-          c.ServerApp.token = ''
-          c.ServerApp.password = ''
-          c.ServerApp.allow_origin = '*'
-          c.ServerApp.allow_remote_access = True
-          
-          # Disable authentication for demo purposes
-          # In production, use: jupyter lab password
-          c.IdentityProvider.token = ''
-
-    - name: Create Jupyter environment script
-      copy:
-        dest: "{{ jupyter_home }}/jupyter-env.sh"
-        owner: "{{ jupyter_user }}"
-        group: "{{ jupyter_user }}"
-        mode: '0755'
-        content: |
-          #!/bin/bash
-          
-          # Java
-          export JAVA_HOME="{{ java_home }}"
-          
-          # Spark
-          export SPARK_HOME="{{ spark_home }}"
-          export PYSPARK_PYTHON={{ jupyter_home }}/venv/bin/python
-          export PYSPARK_DRIVER_PYTHON={{ jupyter_home }}/venv/bin/python
-          
-          # Spark Master
-          export SPARK_MASTER_HOST=node1.cloud.local
-          export SPARK_MASTER_PORT=7077
-          
-          # Path
-          export PATH="{{ jupyter_home }}/venv/bin:{{ spark_home }}/bin:$PATH"
-
-    - name: Create JupyterLab systemd service
-      copy:
-        dest: /etc/systemd/system/jupyterlab.service
-        content: |
-          [Unit]
-          Description=JupyterLab Server
-          After=network.target
-          
-          [Service]
-          Type=simple
-          User={{ jupyter_user }}
-          Group={{ jupyter_user }}
-          EnvironmentFile={{ jupyter_home }}/jupyter-env.sh
-          ExecStart={{ jupyter_home }}/venv/bin/jupyter lab --config=/home/{{ jupyter_user }}/.jupyter/jupyter_lab_config.py
-          WorkingDirectory={{ jupyter_data }}/notebooks
-          Restart=on-failure
-          RestartSec=10
-          
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Reload systemd
-      systemd:
-        daemon_reload: yes
-
-    - name: Enable and start JupyterLab
-      systemd:
-        name: jupyterlab
-        enabled: yes
-        state: started
-
-    - name: Create example PySpark notebook
-      copy:
-        dest: "{{ jupyter_data }}/notebooks/01-spark-example.ipynb"
-        owner: "{{ jupyter_user }}"
-        group: "{{ jupyter_user }}"
-        mode: '0644'
-        content: |
-          {
-            "cells": [
-              {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                  "# Spark Cluster Demo\n",
-                  "\n",
-                  "Dieses Notebook zeigt, wie man sich mit dem Spark-Cluster verbindet."
-                ]
-              },
-              {
-                "cell_type": "code",
-                "execution_count": null,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                  "from pyspark.sql import SparkSession\n",
-                  "\n",
-                  "# Verbindung zum Spark Master\n",
-                  "spark = SparkSession.builder \\\n",
-                  "    .appName('JupyterDemo') \\\n",
-                  "    .master('spark://node1.cloud.local:7077') \\\n",
-                  "    .getOrCreate()\n",
-                  "\n",
-                  "print(f'Spark Version: {spark.version}')\n",
-                  "print(f'Spark Master: {spark.sparkContext.master}')"
-                ]
-              },
-              {
-                "cell_type": "code",
-                "execution_count": null,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                  "# Einfaches DataFrame Beispiel\n",
-                  "data = [\n",
-                  "    ('Alice', 34),\n",
-                  "    ('Bob', 45),\n",
-                  "    ('Charlie', 29)\n",
-                  "]\n",
-                  "\n",
-                  "df = spark.createDataFrame(data, ['Name', 'Age'])\n",
-                  "df.show()"
-                ]
-              },
-              {
-                "cell_type": "code",
-                "execution_count": null,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                  "# Spark Session beenden\n",
-                  "spark.stop()"
-                ]
-              }
-            ],
-            "metadata": {
-              "kernelspec": {
-                "display_name": "Python 3",
-                "language": "python",
-                "name": "python3"
-              },
-              "language_info": {
-                "name": "python",
-                "version": "3.10.0"
-              }
-            },
-            "nbformat": 4,
-            "nbformat_minor": 4
-          }
-
-    - name: Create Solr example notebook
-      copy:
-        dest: "{{ jupyter_data }}/notebooks/02-solr-example.ipynb"
-        owner: "{{ jupyter_user }}"
-        group: "{{ jupyter_user }}"
-        mode: '0644'
-        content: |
-          {
-            "cells": [
-              {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                  "# Solr Cloud Demo\n",
-                  "\n",
-                  "Dieses Notebook zeigt die Interaktion mit dem Solr Cluster."
-                ]
-              },
-              {
-                "cell_type": "code",
-                "execution_count": null,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                  "import pysolr\n",
-                  "import json\n",
-                  "\n",
-                  "# Verbindung zu Solr Cloud\n",
-                  "solr = pysolr.Solr(\n",
-                  "    'http://node1.cloud.local:8983/solr/demo',\n",
-                  "    always_commit=True\n",
-                  ")\n",
-                  "\n",
-                  "print('Verbindung zu Solr hergestellt!')"
-                ]
-              },
-              {
-                "cell_type": "code",
-                "execution_count": null,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                  "# Dokumente hinzufügen\n",
-                  "docs = [\n",
-                  "    {'id': '1', 'title': 'Erstes Dokument', 'content': 'Dies ist ein Testdokument'},\n",
-                  "    {'id': '2', 'title': 'Zweites Dokument', 'content': 'Noch ein Beispiel'}\n",
-                  "]\n",
-                  "\n",
-                  "solr.add(docs)\n",
-                  "print(f'{len(docs)} Dokumente hinzugefügt')"
-                ]
-              },
-              {
-                "cell_type": "code",
-                "execution_count": null,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                  "# Suche ausführen\n",
-                  "results = solr.search('*:*')\n",
-                  "\n",
-                  "print(f'Gefunden: {len(results)} Dokumente')\n",
-                  "for doc in results:\n",
-                  "    print(f\"  - {doc['title']}\")"
-                ]
-              }
-            ],
-            "metadata": {
-              "kernelspec": {
-                "display_name": "Python 3",
-                "language": "python",
-                "name": "python3"
-              },
-              "language_info": {
-                "name": "python",
-                "version": "3.10.0"
-              }
-            },
-            "nbformat": 4,
-            "nbformat_minor": 4
-          }
-
-    - name: Wait for JupyterLab to start
-      wait_for:
+    # ============================================================
+    # Healthcheck
+    # ============================================================
+    - name: Wait for JupyterLab to be ready
+      ansible.builtin.wait_for:
         port: "{{ jupyter_port }}"
-        delay: 5
+        delay: 3
         timeout: 60
 
     - name: Display access information
-      debug:
+      ansible.builtin.debug:
         msg: |
           ============================================
           JupyterLab erfolgreich installiert!
           
           URL: http://node0.cloud.local:{{ jupyter_port }}
-          
           Notebooks: {{ jupyter_data }}/notebooks
+          
+          Spark Master: spark://node1.cloud.local:7077
           ============================================
+
+  handlers:
+    - name: Restart JupyterLab
+      ansible.builtin.systemd:
+        name: jupyterlab
+        state: restarted
+        daemon_reload: yes
