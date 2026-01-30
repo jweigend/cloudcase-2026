@@ -136,6 +136,15 @@
     # ============================================================
     # Demo Notebooks
     # ============================================================
+    - name: Deploy Cluster Dashboard notebook
+      ansible.builtin.template:
+        src: templates/jupyter/00-cluster-dashboard.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/00-cluster-dashboard.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: no  # Don't overwrite if user modified
+
     - name: Deploy Spark example notebook
       ansible.builtin.template:
         src: templates/jupyter/01-spark-example.ipynb.j2

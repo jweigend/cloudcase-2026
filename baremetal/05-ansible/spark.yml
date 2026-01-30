@@ -12,8 +12,8 @@
     spark_user: cloudadmin
     spark_master_host: node1.cloud.local
     spark_master_port: 7077
-    spark_worker_memory: 2g
-    spark_worker_cores: 2
+    spark_worker_memory: 24g
+    spark_worker_cores: 6
     
   tasks:
     - name: Create directories

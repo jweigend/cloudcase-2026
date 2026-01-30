@@ -1,0 +1,224 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Cloudkoffer 2026 - Cluster Dashboard\n",
+        "\n",
+        "Übersicht aller Services im Big Data Cluster."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 🖥️ Cluster Nodes\n",
+        "\n",
+        "| Node | IP | Rolle |\n",
+        "|------|-----|-------|\n",
+        "| node0 | 192.168.1.100 | Monitoring, DNS, JupyterLab |\n",
+        "| node1 | 192.168.1.101 | Spark Master, ZooKeeper, Solr |\n",
+        "| node2 | 192.168.1.102 | Spark Worker, ZooKeeper, Solr |\n",
+        "| node3 | 192.168.1.103 | Spark Worker, ZooKeeper, Solr |\n",
+        "| node4 | 192.168.1.104 | Spark Worker, Solr |"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 🔗 Service URLs\n",
+        "\n",
+        "### Big Data Services\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **Spark Master** | [http://node1.cloud.local:8081](http://node1.cloud.local:8081) | Spark Cluster Management |\n",
+        "| **Spark Worker 1** | [http://node1.cloud.local:8082](http://node1.cloud.local:8082) | Worker auf node1 |\n",
+        "| **Spark Worker 2** | [http://node2.cloud.local:8081](http://node2.cloud.local:8081) | Worker auf node2 |\n",
+        "| **Spark Worker 3** | [http://node3.cloud.local:8081](http://node3.cloud.local:8081) | Worker auf node3 |\n",
+        "| **Spark Worker 4** | [http://node4.cloud.local:8081](http://node4.cloud.local:8081) | Worker auf node4 |\n",
+        "| **Solr Cloud** | [http://node1.cloud.local:8983/solr](http://node1.cloud.local:8983/solr) | Solr Admin UI |\n",
+        "| **JupyterLab** | [http://node0.cloud.local:8888](http://node0.cloud.local:8888) | Notebooks & PySpark |\n",
+        "\n",
+        "### Monitoring\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **Grafana** | [http://node0.cloud.local:3000](http://node0.cloud.local:3000) | Dashboards & Visualisierung |\n",
+        "| **Prometheus** | [http://node0.cloud.local:9090](http://node0.cloud.local:9090) | Metriken & Alerting |\n",
+        "| **Node Exporter** | [http://node0.cloud.local:9100](http://node0.cloud.local:9100) | System-Metriken |\n",
+        "\n",
+        "### ZooKeeper\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **ZooKeeper Admin 1** | [http://node1.cloud.local:8080/commands](http://node1.cloud.local:8080/commands) | ZK auf node1 |\n",
+        "| **ZooKeeper Admin 2** | [http://node2.cloud.local:8080/commands](http://node2.cloud.local:8080/commands) | ZK auf node2 |\n",
+        "| **ZooKeeper Admin 3** | [http://node3.cloud.local:8080/commands](http://node3.cloud.local:8080/commands) | ZK auf node3 |"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 📊 Cluster Status Check"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import requests\n",
+        "from IPython.display import HTML, display\n",
+        "\n",
+        "services = [\n",
+        "    ('Spark Master', 'http://node1.cloud.local:8081'),\n",
+        "    ('Solr Cloud', 'http://node1.cloud.local:8983/solr'),\n",
+        "    ('Grafana', 'http://node0.cloud.local:3000'),\n",
+        "    ('Prometheus', 'http://node0.cloud.local:9090'),\n",
+        "    ('JupyterLab', 'http://node0.cloud.local:8888'),\n",
+        "]\n",
+        "\n",
+        "print('Service Status Check:\\n')\n",
+        "for name, url in services:\n",
+        "    try:\n",
+        "        r = requests.get(url, timeout=3)\n",
+        "        status = '✅ Online' if r.status_code == 200 else f'⚠️ HTTP {r.status_code}'\n",
+        "    except requests.exceptions.RequestException as e:\n",
+        "        status = '❌ Offline'\n",
+        "    print(f'{name:20} {status}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## ⚡ Spark Cluster Info"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import requests\n",
+        "\n",
+        "try:\n",
+        "    r = requests.get('http://node1.cloud.local:8081/json/', timeout=5)\n",
+        "    data = r.json()\n",
+        "    \n",
+        "    print('Spark Cluster Status')\n",
+        "    print('=' * 40)\n",
+        "    print(f\"Status:        {data.get('status', 'unknown')}\")\n",
+        "    print(f\"Workers:       {len(data.get('workers', []))}\")\n",
+        "    print(f\"Cores Total:   {data.get('cores', 0)}\")\n",
+        "    print(f\"Cores Used:    {data.get('coresused', 0)}\")\n",
+        "    print(f\"Memory Total:  {data.get('memory', 0) // 1024} GB\")\n",
+        "    print(f\"Memory Used:   {data.get('memoryused', 0) // 1024} GB\")\n",
+        "    print(f\"Running Apps:  {len(data.get('activeapps', []))}\")\n",
+        "    \n",
+        "    print('\\nWorkers:')\n",
+        "    for w in data.get('workers', []):\n",
+        "        print(f\"  - {w['host']}: {w['cores']} cores, {w['memory']//1024}GB\")\n",
+        "        \n",
+        "except Exception as e:\n",
+        "    print(f'Error: {e}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 🔍 ZooKeeper Cluster Status"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import requests\n",
+        "\n",
+        "zk_nodes = ['node1', 'node2', 'node3']\n",
+        "\n",
+        "print('ZooKeeper Ensemble Status')\n",
+        "print('=' * 40)\n",
+        "\n",
+        "for node in zk_nodes:\n",
+        "    try:\n",
+        "        r = requests.get(f'http://{node}.cloud.local:8080/commands/stats', timeout=3)\n",
+        "        data = r.json()\n",
+        "        mode = data.get('server_stats', {}).get('server_state', 'unknown')\n",
+        "        connections = data.get('server_stats', {}).get('num_alive_connections', 0)\n",
+        "        print(f\"{node}: {mode:10} ({connections} connections)\")\n",
+        "    except Exception as e:\n",
+        "        print(f\"{node}: ❌ Error - {e}\")"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## 📁 Solr Collections"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import requests\n",
+        "\n",
+        "try:\n",
+        "    r = requests.get('http://node1.cloud.local:8983/solr/admin/collections?action=LIST&wt=json', timeout=5)\n",
+        "    data = r.json()\n",
+        "    collections = data.get('collections', [])\n",
+        "    \n",
+        "    print('Solr Collections')\n",
+        "    print('=' * 40)\n",
+        "    if collections:\n",
+        "        for coll in collections:\n",
+        "            print(f\"  - {coll}\")\n",
+        "    else:\n",
+        "        print('  (keine Collections)')\n",
+        "        \n",
+        "except Exception as e:\n",
+        "    print(f'Error: {e}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## 🚀 Quick Links\n",
+        "\n",
+        "- [Spark Master UI](http://node1.cloud.local:8081)\n",
+        "- [Solr Admin](http://node1.cloud.local:8983/solr)\n",
+        "- [Grafana Dashboards](http://node0.cloud.local:3000)\n",
+        "- [Prometheus](http://node0.cloud.local:9090)"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.12"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 4
+}

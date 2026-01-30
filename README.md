@@ -149,7 +149,7 @@ cd baremetal
 | Service | URL |
 |---------|-----|
 | Solr Admin | http://node1.cloud.local:8983/solr/ |
-| Spark Master | http://node1.cloud.local:8082/ |
+| Spark Master | http://node1.cloud.local:8081/ |
 | Grafana | http://node0.cloud.local:3000/ |
 | Prometheus | http://node0.cloud.local:9090/ |
 | JupyterLab | http://node0.cloud.local:8888/ |

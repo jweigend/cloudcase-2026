@@ -3,7 +3,7 @@
 # Verwendung: make [target]
 #
 
-.PHONY: help iso configs usb ansible zookeeper solr spark monitoring smoke-tests collection clean shutdown
+.PHONY: help iso configs usb ansible zookeeper solr spark monitoring jupyter smoke-tests collection clean shutdown
 
 # Ansible Pfad
 ANSIBLE := ~/.local/share/pipx/venvs/ansible/bin/ansible-playbook
@@ -31,6 +31,7 @@ help:
 	@echo "║  make solr             Nur Solr Cloud installieren                       ║"
 	@echo "║  make spark            Nur Spark Cluster installieren                    ║"
 	@echo "║  make monitoring       Nur Monitoring (Prometheus/Grafana) installieren  ║"
+	@echo "║  make jupyter          Nur JupyterLab installieren                       ║"
 	@echo "║                                                                          ║"
 	@echo "║  CLUSTER STEUERUNG:                                                      ║"
 	@echo "║  ─────────────────────────────────────────────────────────────────────── ║"
@@ -47,6 +48,7 @@ help:
 	@echo "║  Prometheus:   http://node0:9090                                         ║"
 	@echo "║  Spark Master: http://node1:8081                                         ║"
 	@echo "║  Solr Admin:   http://node1:8983/solr                                    ║"
+	@echo "║  JupyterLab:   http://node0:8888                                         ║"
 	@echo "║                                                                          ║"
 	@echo "╚══════════════════════════════════════════════════════════════════════════╝"
 	@echo ""
@@ -95,6 +97,13 @@ spark:
 monitoring:
 	@echo "=== Monitoring (Prometheus/Grafana) installieren ==="
 	$(ANSIBLE) -i $(INVENTORY) $(ANSIBLE_DIR)/monitoring.yml
+
+jupyter:
+	@echo "=== JupyterLab installieren ==="
+	$(ANSIBLE) -i $(INVENTORY) $(ANSIBLE_DIR)/jupyter.yml
+	@echo ""
+	@echo "JupyterLab: http://node0.cloud.local:8888"
+	@xdg-open http://node0.cloud.local:8888 2>/dev/null || open http://node0.cloud.local:8888 2>/dev/null || echo "Browser öffnen: http://node0.cloud.local:8888"
 
 # ============================================
 # TESTS & STATUS
