@@ -26,3 +26,6 @@
 - name: Install Monitoring Stack
   import_playbook: monitoring.yml
   tags: monitoring
+- name: Install JupyterLab
+  import_playbook: jupyter.yml
+  tags: jupyter

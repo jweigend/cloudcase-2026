@@ -152,6 +152,7 @@ cd baremetal
 | Spark Master | http://node1.cloud.local:8081/ |
 | Grafana | http://node0.cloud.local:3000/ |
 | Prometheus | http://node0.cloud.local:9090/ |
+| JupyterLab | http://node0.cloud.local:8888/ |
 
 ---
 
