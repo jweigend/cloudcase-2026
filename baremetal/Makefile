@@ -3,7 +3,7 @@
 # Verwendung: make [target]
 #
 
-.PHONY: help iso configs usb ansible zookeeper solr spark monitoring smoke-tests collection clean
+.PHONY: help iso configs usb ansible zookeeper solr spark monitoring smoke-tests collection clean shutdown
 
 # Ansible Pfad
 ANSIBLE := ~/.local/share/pipx/venvs/ansible/bin/ansible-playbook
@@ -31,6 +31,10 @@ help:
 	@echo "║  make solr             Nur Solr Cloud installieren                       ║"
 	@echo "║  make spark            Nur Spark Cluster installieren                    ║"
 	@echo "║  make monitoring       Nur Monitoring (Prometheus/Grafana) installieren  ║"
+	@echo "║                                                                          ║"
+	@echo "║  CLUSTER STEUERUNG:                                                      ║"
+	@echo "║  ─────────────────────────────────────────────────────────────────────── ║"
+	@echo "║  make shutdown         Alle Nodes herunterfahren                         ║"
 	@echo "║                                                                          ║"
 	@echo "║  STATUS & TESTS:                                                         ║"
 	@echo "║  ─────────────────────────────────────────────────────────────────────── ║"
@@ -138,6 +142,18 @@ ping:
 			echo "$$node: OFFLINE"; \
 		fi \
 	done
+
+# ============================================
+# CLUSTER STEUERUNG
+# ============================================
+
+shutdown:
+	@echo "=== Alle Nodes herunterfahren ==="
+	@for node in node4 node3 node2 node1 node0; do \
+		echo "Fahre $$node herunter..."; \
+		ssh -o ConnectTimeout=2 cloudadmin@$$node "sudo shutdown -h now" 2>/dev/null || true; \
+	done
+	@echo "=== Shutdown-Befehle gesendet ==="
 
 # ============================================
 # CLEANUP
