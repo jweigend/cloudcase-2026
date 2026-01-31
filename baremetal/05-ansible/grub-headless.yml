@@ -1,0 +1,75 @@
+---
+# Ansible Playbook: GRUB Konfiguration für Headless NUCs
+#
+# Behebt Freeze-Probleme bei Intel NUCs ohne angeschlossenen Monitor.
+# Die Intel GPU geht ohne Display in problematische Power States.
+#
+# Kernel-Parameter:
+#   intel_idle.max_cstate=1  - Verhindert tiefe CPU-Schlafzustände
+#   i915.enable_dc=0         - Deaktiviert Display Power Saving
+#   i915.enable_psr=0        - Deaktiviert Panel Self Refresh
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml grub-headless.yml
+#
+# HINWEIS: Erfordert Reboot nach Anwendung!
+
+- name: GRUB Konfiguration für Headless Intel NUCs
+  hosts: all
+  become: true
+
+  vars:
+    grub_cmdline: "quiet intel_idle.max_cstate=1 i915.enable_dc=0 i915.enable_psr=0"
+
+  tasks:
+    - name: Aktuelle GRUB Konfiguration sichern
+      copy:
+        src: /etc/default/grub
+        dest: /etc/default/grub.backup
+        remote_src: true
+        force: false  # Nur beim ersten Mal
+
+    - name: GRUB_CMDLINE_LINUX_DEFAULT setzen
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ grub_cmdline }}"'
+        backup: true
+      register: grub_changed
+
+    - name: GRUB aktualisieren
+      command: update-grub
+      when: grub_changed.changed
+
+    - name: Aktuelle Kernel-Parameter anzeigen
+      command: cat /proc/cmdline
+      register: cmdline
+      changed_when: false
+
+    - name: Status anzeigen
+      debug:
+        msg: |
+          Aktuelle Kernel-Parameter: {{ cmdline.stdout }}
+          
+          {% if grub_changed.changed %}
+          ⚠️  GRUB wurde geändert - REBOOT ERFORDERLICH!
+          {% else %}
+          ✓ GRUB bereits korrekt konfiguriert
+          {% endif %}
+
+  post_tasks:
+    - name: Reboot-Hinweis
+      debug:
+        msg: |
+          ══════════════════════════════════════════════════════════
+          WICHTIG: Die Änderungen werden erst nach einem Reboot aktiv!
+          
+          Reboot aller Nodes:
+            ansible all -i inventory.yml -m reboot
+          
+          Oder einzeln:
+            ansible node2 -i inventory.yml -m reboot
+            ansible node4 -i inventory.yml -m reboot
+          ══════════════════════════════════════════════════════════
+      when: grub_changed.changed
+      run_once: true
