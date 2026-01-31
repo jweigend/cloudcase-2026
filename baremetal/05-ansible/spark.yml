@@ -116,6 +116,7 @@
           User={{ spark_user }}
           Environment="JAVA_HOME={{ java_home }}"
           Environment="SPARK_HOME={{ spark_home }}"
+          Environment="SPARK_MASTER_WEBUI_PORT=8081"
           ExecStart={{ spark_home }}/sbin/start-master.sh
           ExecStop={{ spark_home }}/sbin/stop-master.sh
           Restart=on-failure
@@ -166,7 +167,7 @@
           User={{ spark_user }}
           Environment="JAVA_HOME={{ java_home }}"
           Environment="SPARK_HOME={{ spark_home }}"
-          Environment="SPARK_WORKER_WEBUI_PORT=8081"
+          Environment="SPARK_WORKER_WEBUI_PORT=8082"
           ExecStartPre=/bin/sleep 5
           ExecStart={{ spark_home }}/sbin/start-worker.sh spark://{{ spark_master_host }}:7077
           ExecStop={{ spark_home }}/sbin/stop-worker.sh
@@ -188,9 +189,9 @@
 
     - name: Wait for Spark Worker to start
       wait_for:
-        port: 8081
+        port: 8082
         timeout: 30
 
     - name: Show Spark Worker status
       debug:
-        msg: "Spark Worker running on {{ inventory_hostname }} (UI: http://{{ inventory_hostname }}:8081)"
+        msg: "Spark Worker running on {{ inventory_hostname }} (UI: http://{{ inventory_hostname }}:8082)"

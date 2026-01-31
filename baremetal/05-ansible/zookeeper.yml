@@ -69,6 +69,7 @@
           syncLimit=5
           dataDir={{ zk_data }}
           clientPort=2181
+          # AdminServer bleibt auf Standard-Port 8080
           
           server.1=node1.{{ domain }}:2888:3888
           server.2=node2.{{ domain }}:2888:3888

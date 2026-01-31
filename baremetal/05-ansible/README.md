@@ -86,8 +86,8 @@ ansible all -i inventory.yml -m ping
 ### Spark (3.5.8)
 - **Master:** node1:7077
 - **Workers:** node1, node2, node3, node4
-- **Web UI Master:** `http://node1:8080`
-- **Web UI Workers:** `http://node1:8081`, `http://node2:8081`, `http://node3:8081`, `http://node4:8081`
+- **Web UI Master:** `http://node1:8081`
+- **Web UI Workers:** `http://node1:8082`, `http://node2:8082`, `http://node3:8082`, `http://node4:8082`
 
 ### Monitoring
 - **Prometheus:** node0:9090
