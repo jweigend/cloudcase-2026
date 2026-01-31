@@ -8,17 +8,20 @@ Ein portabler Big Data Cluster auf 5 Intel NUCs für Demos, Workshops und Entwic
 │                                                                         │
 │   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐          │
 │   │  node0  │ │  node1  │ │  node2  │ │  node3  │ │  node4  │          │
-│   │   DNS   │ │  Master │ │  Worker │ │  Worker │ │  Worker │          │
+│   │Jupyter  │ │  Master │ │  Worker │ │  Worker │ │  Worker │          │
 │   │Grafana  │ │   ZK    │ │   ZK    │ │   ZK    │ │  Solr   │          │
 │   │Promethe.│ │  Solr   │ │  Solr   │ │  Solr   │ │  Spark  │          │
-│   └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘          │
+│   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘          │
+│        │           │           │           │           │                │
+│     (dnsmasq)   (dnsmasq)  (dnsmasq)   (dnsmasq)   (dnsmasq)            │
 │        │           │           │           │           │                │
 │        └───────────┴───────────┴───────────┴───────────┘                │
 │                          Gigabit Switch                                 │
 │                               │                                         │
-│                        ┌──────┴──────┐                                  │
-│                        │ EdgeRouter X │──── Internet                    │
-│                        └─────────────┘                                  │
+│                     ┌─────────┴─────────┐                               │
+│                     │    EdgeRouter X   │──── Internet                  │
+│                     │  DHCP + DNS Fwd   │                               │
+│                     └───────────────────┘                               │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -66,7 +69,8 @@ Der **Cloudkoffer** ist ein kompletter Big Data Stack in einem transportablen Ko
 |------------|--------------|
 | Ubuntu 24.04 LTS | Betriebssystem |
 | Cloud-Init | Automatische Konfiguration |
-| dnsmasq | DNS für `cloud.local` Domain |
+| dnsmasq | Lokaler DNS-Cache auf jedem Node |
+| EdgeRouter X | DHCP + DNS Forwarding ins Internet |
 | OpenJDK 17 | Java Runtime |
 
 ---
@@ -103,15 +107,16 @@ Verteilte Datenverarbeitung:
 
 | Node | IP | Hostname | Rolle |
 |------|-----|----------|-------|
-| node0 | 192.168.1.100 | node0.cloud.local | DNS, Monitoring |
+| node0 | 192.168.1.100 | node0.cloud.local | Monitoring, Jupyter |
 | node1 | 192.168.1.101 | node1.cloud.local | ZK, Solr, Spark Master |
 | node2 | 192.168.1.102 | node2.cloud.local | ZK, Solr, Spark Worker |
 | node3 | 192.168.1.103 | node3.cloud.local | ZK, Solr, Spark Worker |
 | node4 | 192.168.1.104 | node4.cloud.local | Solr, Spark Worker |
 
-- **Router**: 192.168.1.1 (EdgeRouter X)
+- **Router**: 192.168.1.1 (EdgeRouter X, DHCP + DNS)
 - **Domain**: cloud.local
 - **DHCP**: Statische Zuweisung per MAC-Adresse
+- **DNS**: Jeder Node hat lokalen dnsmasq-Cache → EdgeRouter → Internet
 
 ---
 

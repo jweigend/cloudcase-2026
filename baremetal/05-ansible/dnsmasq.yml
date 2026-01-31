@@ -1,0 +1,106 @@
+---
+# Ansible Playbook: Lokaler DNS Cache auf allen Nodes
+#
+# Installiert dnsmasq auf jedem Node als lokalen DNS-Cache,
+# der Anfragen an den EdgeRouter (192.168.1.1) weiterleitet.
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml dnsmasq.yml
+
+- name: Lokaler DNS Cache (dnsmasq) auf allen Nodes
+  hosts: all
+  become: true
+  
+  vars:
+    edge_router: 192.168.1.1
+    dns_cache_size: 1000
+    
+  tasks:
+    - name: dnsmasq installieren
+      apt:
+        name: dnsmasq
+        state: present
+        update_cache: true
+
+    - name: systemd-resolved stoppen und deaktivieren
+      systemd:
+        name: systemd-resolved
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: dnsmasq Konfiguration erstellen
+      copy:
+        dest: /etc/dnsmasq.d/local-cache.conf
+        content: |
+          # Lokaler DNS Cache - forwarding zum EdgeRouter
+          server={{ edge_router }}
+          cache-size={{ dns_cache_size }}
+          
+          # Performance Optimierungen
+          neg-ttl=30               # Negative Antworten 30s cachen
+          min-cache-ttl=60         # Mindestens 60s cachen
+          dns-forward-max=1000     # Mehr parallele Queries
+          
+          # Lokale Domain
+          local=/cloud.local/
+          domain=cloud.local
+          expand-hosts
+          
+          # Nur auf localhost lauschen
+          listen-address=127.0.0.1
+          bind-interfaces
+          
+          # Hosts-Datei für cloud.local
+          addn-hosts=/etc/hosts.cloud
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart dnsmasq
+
+    - name: Hosts-Datei für cloud.local erstellen
+      copy:
+        dest: /etc/hosts.cloud
+        content: |
+          192.168.1.1   router router.cloud.local
+          192.168.1.100 node0 node0.cloud.local
+          192.168.1.101 node1 node1.cloud.local
+          192.168.1.102 node2 node2.cloud.local
+          192.168.1.103 node3 node3.cloud.local
+          192.168.1.104 node4 node4.cloud.local
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart dnsmasq
+
+    - name: resolv.conf auf lokalen dnsmasq setzen
+      copy:
+        dest: /etc/resolv.conf
+        content: |
+          nameserver 127.0.0.1
+          search cloud.local
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: dnsmasq aktivieren und starten
+      systemd:
+        name: dnsmasq
+        state: started
+        enabled: true
+
+  handlers:
+    - name: restart dnsmasq
+      systemd:
+        name: dnsmasq
+        state: restarted
+
+  post_tasks:
+    - name: DNS Test - lokale Auflösung
+      command: dig +short node0.cloud.local @127.0.0.1
+      register: dns_test
+      changed_when: false
+
+    - name: DNS Test Ergebnis anzeigen
+      debug:
+        msg: "DNS funktioniert: node0.cloud.local -> {{ dns_test.stdout }}"

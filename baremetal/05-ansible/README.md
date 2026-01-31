@@ -19,11 +19,14 @@ Ansible Playbooks zur Installation des Big Data Stacks auf dem Cloudkoffer-Clust
 
 | Node  | IP            | Rolle                                    |
 |-------|---------------|------------------------------------------|
-| node0 | 192.168.1.100 | Prometheus, Grafana, DNS (dnsmasq)       |
+| node0 | 192.168.1.100 | Prometheus, Grafana, JupyterLab          |
 | node1 | 192.168.1.101 | ZooKeeper, Solr, Spark-Master            |
 | node2 | 192.168.1.102 | ZooKeeper, Solr, Spark-Worker            |
 | node3 | 192.168.1.103 | ZooKeeper, Solr, Spark-Worker            |
 | node4 | 192.168.1.104 | Solr, Spark-Worker                       |
+
+> **DNS-Architektur:** Jeder Node hat einen lokalen dnsmasq-Cache, der Anfragen
+> an den EdgeRouter (192.168.1.1) weiterleitet. Kein Single Point of Failure.
 
 ## Verwendung
 
@@ -37,6 +40,9 @@ ansible-playbook -i inventory.yml site.yml
 ### Einzelne Komponenten installieren
 
 ```bash
+# DNS-Cache auf allen Nodes
+ansible-playbook -i inventory.yml dnsmasq.yml
+
 # Nur ZooKeeper
 ansible-playbook -i inventory.yml zookeeper.yml
 

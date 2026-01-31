@@ -12,8 +12,48 @@ packages:
   - htop
   - vim
   - tmux
+  - dnsmasq
 
 write_files:
+  # Lokaler DNS-Cache (forwarding zum EdgeRouter)
+  - path: /etc/dnsmasq.d/local-cache.conf
+    content: |
+      # Lokaler DNS Cache - forwarding zum EdgeRouter
+      server=192.168.1.1
+      cache-size=1000
+      
+      # Performance Optimierungen
+      neg-ttl=30               # Negative Antworten 30s cachen
+      min-cache-ttl=60         # Mindestens 60s cachen
+      dns-forward-max=1000     # Mehr parallele Queries
+      
+      # Lokale Domain
+      local=/cloud.local/
+      domain=cloud.local
+      expand-hosts
+      
+      # Nur auf localhost lauschen
+      listen-address=127.0.0.1
+      bind-interfaces
+      
+      # Hosts-Datei für cloud.local
+      addn-hosts=/etc/hosts.cloud
+
+  # Hosts file für cloud.local Domain
+  - path: /etc/hosts.cloud
+    content: |
+      192.168.1.1   router router.cloud.local
+      192.168.1.100 node0 node0.cloud.local
+      192.168.1.101 node1 node1.cloud.local
+      192.168.1.102 node2 node2.cloud.local
+      192.168.1.103 node3 node3.cloud.local
+      192.168.1.104 node4 node4.cloud.local
+
+  # resolv.conf - lokaler dnsmasq
+  - path: /etc/resolv.conf
+    content: |
+      nameserver 127.0.0.1
+      search cloud.local
   # Kernel-Parameter für Big Data
   - path: /etc/sysctl.d/99-cloudkoffer.conf
     content: |
@@ -37,6 +77,12 @@ write_files:
       cloudadmin hard nproc 65535
 
 runcmd:
+  # systemd-resolved deaktivieren (kollidiert mit dnsmasq)
+  - systemctl disable systemd-resolved || true
+  - systemctl stop systemd-resolved || true
+  # dnsmasq aktivieren
+  - systemctl enable dnsmasq
+  - systemctl restart dnsmasq
   # Firewall deaktivieren (idempotent)
   - ufw disable || true
   # Swap deaktivieren (idempotent)
