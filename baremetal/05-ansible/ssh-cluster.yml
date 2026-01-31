@@ -1,0 +1,85 @@
+---
+# Ansible Playbook: SSH-Zugriff zwischen allen Cluster-Nodes
+#
+# Generiert SSH-Keys auf allen Nodes und verteilt sie,
+# sodass jeder Node jeden anderen Node per SSH erreichen kann.
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml ssh-cluster.yml
+
+- name: SSH Keys generieren
+  hosts: all
+  become: true
+  become_user: cloudadmin
+  
+  tasks:
+    - name: SSH-Verzeichnis erstellen
+      file:
+        path: /home/cloudadmin/.ssh
+        state: directory
+        mode: '0700'
+        owner: cloudadmin
+        group: cloudadmin
+
+    - name: SSH-Key generieren (falls nicht vorhanden)
+      community.crypto.openssh_keypair:
+        path: /home/cloudadmin/.ssh/id_ed25519
+        type: ed25519
+        owner: cloudadmin
+        group: cloudadmin
+        mode: '0600'
+      register: ssh_key
+
+    - name: Public Key einlesen
+      slurp:
+        src: /home/cloudadmin/.ssh/id_ed25519.pub
+      register: public_key
+
+    - name: Public Key als Fakt speichern
+      set_fact:
+        node_public_key: "{{ public_key.content | b64decode | trim }}"
+
+- name: SSH Keys auf alle Nodes verteilen
+  hosts: all
+  become: true
+  
+  tasks:
+    - name: Alle Public Keys zu authorized_keys hinzufügen
+      authorized_key:
+        user: cloudadmin
+        key: "{{ hostvars[item]['node_public_key'] }}"
+        state: present
+      loop: "{{ groups['all'] }}"
+      when: hostvars[item]['node_public_key'] is defined
+
+    - name: Known Hosts für alle Nodes einsammeln (auf jedem Node)
+      shell: |
+        for host in node0 node1 node2 node3 node4; do
+          ssh-keyscan -H $host.cloud.local $host 2>/dev/null
+        done
+      register: host_keys
+      changed_when: false
+
+    - name: Known Hosts Datei erstellen
+      copy:
+        content: "{{ host_keys.stdout }}"
+        dest: /home/cloudadmin/.ssh/known_hosts
+        owner: cloudadmin
+        group: cloudadmin
+        mode: '0644'
+
+- name: SSH-Zugriff testen
+  hosts: all
+  become: true
+  become_user: cloudadmin
+  
+  tasks:
+    - name: SSH-Verbindung zu allen anderen Nodes testen
+      shell: ssh -o BatchMode=yes -o ConnectTimeout=5 {{ item }} hostname
+      loop: "{{ groups['all'] | difference([inventory_hostname]) }}"
+      register: ssh_test
+      changed_when: false
+
+    - name: Testergebnisse anzeigen
+      debug:
+        msg: "{{ inventory_hostname }} kann erreichen: {{ ssh_test.results | map(attribute='item') | list | join(', ') }}"
