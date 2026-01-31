@@ -1,0 +1,81 @@
+---
+# Ansible Playbook: Kernel-Tuning für Big Data
+#
+# Optimiert Kernel-Parameter und Limits für Spark/Solr
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml sysctl.yml
+
+- name: Kernel-Tuning für Big Data Workloads
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Kernel-Parameter für Big Data setzen
+      copy:
+        dest: /etc/sysctl.d/99-cloudkoffer.conf
+        content: |
+          # Netzwerk
+          net.core.somaxconn = 65535
+          net.ipv4.tcp_max_syn_backlog = 65535
+          
+          # Speicher - Swap vermeiden
+          vm.swappiness = 1
+          vm.max_map_count = 262144
+          
+          # Datei-Deskriptoren
+          fs.file-max = 2097152
+        owner: root
+        group: root
+        mode: '0644'
+      register: sysctl_config
+
+    - name: Sysctl neu laden
+      command: sysctl --system
+      when: sysctl_config.changed
+
+    - name: Limits für cloudadmin setzen
+      copy:
+        dest: /etc/security/limits.d/99-cloudkoffer.conf
+        content: |
+          cloudadmin soft nofile 65535
+          cloudadmin hard nofile 65535
+          cloudadmin soft nproc 65535
+          cloudadmin hard nproc 65535
+          *          soft nofile 65535
+          *          hard nofile 65535
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: PAM limits aktivieren (common-session)
+      lineinfile:
+        path: /etc/pam.d/common-session
+        line: "session required pam_limits.so"
+        state: present
+
+    - name: PAM limits aktivieren (common-session-noninteractive)
+      lineinfile:
+        path: /etc/pam.d/common-session-noninteractive
+        line: "session required pam_limits.so"
+        state: present
+
+    - name: Swap deaktivieren
+      command: swapoff -a
+      ignore_errors: true
+
+    - name: Swap aus fstab entfernen
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\sswap\s.*)$'
+        replace: '# \1'
+
+  post_tasks:
+    - name: Kernel-Parameter verifizieren
+      command: sysctl vm.swappiness vm.max_map_count fs.file-max net.core.somaxconn
+      register: sysctl_check
+      changed_when: false
+
+    - name: Ergebnis anzeigen
+      debug:
+        msg: "{{ sysctl_check.stdout_lines }}"
