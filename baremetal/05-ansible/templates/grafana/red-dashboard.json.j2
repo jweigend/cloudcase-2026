@@ -1,0 +1,566 @@
+{
+  "id": null,
+    "uid": "cloudkoffer-red",
+    "title": "Cloudkoffer - RED Dashboard (Rate, Errors, Duration)",
+    "tags": ["cloudkoffer", "red", "services"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "annotations": {
+      "list": []
+    },
+    "panels": [
+      {
+        "id": 100,
+        "title": "🔥 Spark Cluster",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 1,
+        "title": "⚡ Spark - Active Workers",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 2 },
+                { "color": "green", "value": 4 }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "metrics_master_aliveWorkers_Value",
+            "legendFormat": "Alive Workers"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 2,
+        "title": "📊 Spark - Running Apps",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "metrics_master_apps_Value",
+            "legendFormat": "Running Apps"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 3,
+        "title": "⏳ Spark - Waiting Apps",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 3 }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "metrics_master_waitingApps_Value",
+            "legendFormat": "Waiting Apps"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 4,
+        "title": "🖥️ Spark - Total Workers",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "metrics_master_workers_Value",
+            "legendFormat": "Total Workers"
+          }
+        ],
+        "options": { "graphMode": "none", "colorMode": "value" }
+      },
+      {
+        "id": 5,
+        "title": "🔧 Spark Workers - Cores (Utilization)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 5, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 30, "lineWidth": 2, "stacking": { "mode": "normal" } }
+          }
+        },
+        "targets": [
+          {
+            "expr": "metrics_worker_coresUsed_Value",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Used"
+          },
+          {
+            "expr": "metrics_worker_coresFree_Value",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Free"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "💾 Spark Workers - Memory (Utilization)",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 5, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes",
+            "custom": { "fillOpacity": 30, "lineWidth": 2, "stacking": { "mode": "normal" } }
+          }
+        },
+        "targets": [
+          {
+            "expr": "metrics_worker_memUsed_MB_Value",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Used"
+          },
+          {
+            "expr": "metrics_worker_memFree_MB_Value",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Free"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "⚙️ Spark Workers - Executors",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 5, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 30, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "metrics_worker_executors_Value",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 200,
+        "title": "🦁 ZooKeeper Cluster",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 8,
+        "title": "📈 ZooKeeper - Request Rate",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 14, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(requests_count[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "❌ ZooKeeper - Errors",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 14, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(auth_failed_count[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Auth Failed"
+          },
+          {
+            "expr": "outstanding_requests",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Outstanding"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "⏱️ ZooKeeper - Latency (Duration)",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 14, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "avg_latency",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Avg"
+          },
+          {
+            "expr": "max_latency",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Max"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "🗂️ ZooKeeper - ZNodes",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 22, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "max(znode_count)",
+            "legendFormat": "ZNodes"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 12,
+        "title": "👁️ ZooKeeper - Watches",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 22, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "purple", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum(watch_count)",
+            "legendFormat": "Total Watches"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 13,
+        "title": "🔗 ZooKeeper - Connections",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 22, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum(num_alive_connections)",
+            "legendFormat": "Connections"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 14,
+        "title": "👑 ZooKeeper - Leader",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 22, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "orange", "value": null }
+              ]
+            },
+            "mappings": [
+              { "type": "value", "options": { "1": { "text": "Leader", "color": "green" } } },
+              { "type": "value", "options": { "0": { "text": "Follower", "color": "blue" } } }
+            ]
+          }
+        },
+        "targets": [
+          {
+            "expr": "leader_uptime > 0",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ],
+        "options": { "graphMode": "none", "colorMode": "value" }
+      },
+      {
+        "id": 300,
+        "title": "🔍 Solr Cloud",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 26, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 15,
+        "title": "📈 Solr - Request Rate",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 27, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(solr_metrics_core_requests_total[5m])",
+            "legendFormat": "{% raw %}{{ core }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "title": "❌ Solr - Errors",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 27, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(solr_metrics_core_errors_total[5m])",
+            "legendFormat": "{% raw %}{{ core }}{% endraw %} Errors"
+          },
+          {
+            "expr": "rate(solr_metrics_core_timeouts_total[5m])",
+            "legendFormat": "{% raw %}{{ core }}{% endraw %} Timeouts"
+          }
+        ]
+      },
+      {
+        "id": 17,
+        "title": "⏱️ Solr - Request Time (Duration)",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 27, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "solr_metrics_core_average_request_time",
+            "legendFormat": "{% raw %}{{ core }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 18,
+        "title": "📚 Solr - Documents",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 35, "w": 8, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum(solr_metrics_core_num_docs)",
+            "legendFormat": "Total Documents"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 19,
+        "title": "💾 Solr - Index Size",
+        "type": "stat",
+        "gridPos": { "x": 8, "y": 35, "w": 8, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "purple", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum(solr_metrics_core_index_size_bytes)",
+            "legendFormat": "Total Index Size"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 20,
+        "title": "🗃️ Solr - Shards & Replicas",
+        "type": "stat",
+        "gridPos": { "x": 16, "y": 35, "w": 8, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "count(solr_metrics_core_num_docs)",
+            "legendFormat": "Active Cores"
+          }
+        ],
+        "options": { "graphMode": "none", "colorMode": "value" }
+      },
+      {
+        "id": 400,
+        "title": "🎯 Service Health",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 39, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 21,
+        "title": "🟢 Prometheus Targets Health",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 40, "w": 24, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]
+            },
+            "mappings": [
+              { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } },
+              { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } }
+            ]
+          }
+        },
+        "targets": [
+          { "expr": "up{job=\"node\"}", "legendFormat": "Node {% raw %}{{ instance }}{% endraw %}" },
+          { "expr": "up{job=\"zookeeper\"}", "legendFormat": "ZK {% raw %}{{ instance }}{% endraw %}" },
+          { "expr": "up{job=\"solr\"}", "legendFormat": "Solr Exporter" },
+          { "expr": "up{job=\"spark-master\"}", "legendFormat": "Spark Master" },
+          { "expr": "up{job=\"spark-worker\"}", "legendFormat": "Worker {% raw %}{{ instance }}{% endraw %}" }
+        ],
+        "options": { "graphMode": "none", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      }
+    ]
+}

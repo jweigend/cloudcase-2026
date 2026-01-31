@@ -90,11 +90,45 @@
         owner: "{{ spark_user }}"
         group: "{{ spark_user }}"
         content: |
+          # Cluster Connection
           spark.master                     spark://{{ spark_master_host }}:{{ spark_master_port }}
+          
+          # Executor Configuration (optimiert für 4 Worker mit je 6 Cores, 24 GB)
+          # 3 Executors pro Worker = 12 Executors total
+          # Jeder Executor: 6 GB RAM, 2 Cores
+          spark.executor.memory            6g
+          spark.executor.cores             2
+          spark.executor.memoryOverhead    1g
+          
+          # Driver Configuration
+          spark.driver.memory              4g
+          spark.driver.cores               2
+          spark.driver.maxResultSize       2g
+          
+          # Default Parallelism (2-3x Cores = 48-72)
+          spark.default.parallelism        48
+          spark.sql.shuffle.partitions     48
+          
+          # Event Logging (für Spark History Server)
           spark.eventLog.enabled           true
           spark.eventLog.dir               file:///data/spark/logs
           spark.history.fs.logDirectory    file:///data/spark/logs
+          
+          # Serialization (bessere Performance)
           spark.serializer                 org.apache.spark.serializer.KryoSerializer
+          spark.kryoserializer.buffer.max  512m
+          
+          # SQL/DataFrame Optimizations
+          spark.sql.adaptive.enabled       true
+          spark.sql.adaptive.coalescePartitions.enabled   true
+          
+          # Memory Management
+          spark.memory.fraction            0.6
+          spark.memory.storageFraction     0.5
+          
+          # Network/Shuffle
+          spark.network.timeout            300s
+          spark.rpc.askTimeout             300s
 
 - name: Configure Spark Master
   hosts: spark_master

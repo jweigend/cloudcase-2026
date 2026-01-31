@@ -136,12 +136,15 @@
           global:
             scrape_interval: 15s
             evaluation_interval: 15s
+            scrape_timeout: 10s
           
           scrape_configs:
+            # Prometheus selbst
             - job_name: 'prometheus'
               static_configs:
                 - targets: ['localhost:9090']
             
+            # Node Exporter - System-Metriken aller Nodes
             - job_name: 'node'
               static_configs:
                 - targets:
@@ -151,6 +154,7 @@
                     - 'node3.{{ domain }}:9100'
                     - 'node4.{{ domain }}:9100'
             
+            # ZooKeeper Cluster - eingebaute Prometheus-Metriken (Port 7070)
             - job_name: 'zookeeper'
               static_configs:
                 - targets:
@@ -158,16 +162,32 @@
                     - 'node2.{{ domain }}:7070'
                     - 'node3.{{ domain }}:7070'
             
+            # Solr Cloud - via solr-exporter (Port 9854)
             - job_name: 'solr'
-              metrics_path: '/solr/admin/metrics'
-              params:
-                type: ['prometheus']
               static_configs:
                 - targets:
-                    - 'node1.{{ domain }}:8983'
-                    - 'node2.{{ domain }}:8983'
-                    - 'node3.{{ domain }}:8983'
-                    - 'node4.{{ domain }}:8983'
+                    - 'node1.{{ domain }}:9854'
+            
+            # Spark Master - eingebauter Prometheus-Endpunkt
+            - job_name: 'spark-master'
+              metrics_path: '/metrics/master/prometheus/'
+              static_configs:
+                - targets: ['node1.{{ domain }}:8081']
+                  labels:
+                    role: master
+            
+            # Spark Workers - eingebauter Prometheus-Endpunkt
+            - job_name: 'spark-worker'
+              metrics_path: '/metrics/prometheus/'
+              static_configs:
+                - targets:
+                    - 'node1.{{ domain }}:8082'
+                    - 'node2.{{ domain }}:8082'
+                    - 'node3.{{ domain }}:8082'
+                    - 'node4.{{ domain }}:8082'
+                  labels:
+                    role: worker
+      notify: restart prometheus
 
     - name: Create Prometheus systemd service
       copy:
@@ -203,6 +223,12 @@
       wait_for:
         port: 9090
         timeout: 30
+
+  handlers:
+    - name: restart prometheus
+      systemd:
+        name: prometheus
+        state: restarted
 
 - name: Install Grafana on monitoring node
   hosts: monitoring

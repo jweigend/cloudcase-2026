@@ -1,0 +1,218 @@
+---
+# Prometheus Exporters für ZooKeeper, Solr und Spark
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml prometheus-exporters.yml
+#
+# Dieser Playbook richtet Prometheus Exporter ein für:
+# - Solr (Port 9854) - nutzt den eingebauten solr-exporter
+# - ZooKeeper (Port 7070) - nutzt zookeeper-exporter
+# - Spark - bereits über eingebaute PrometheusServlet konfiguriert
+
+# ============================================================
+# Spark Prometheus Metrics (bereits eingebaut, nur aktivieren)
+# ============================================================
+- name: Configure Spark Prometheus Metrics
+  hosts: spark
+  become: yes
+  vars:
+    spark_home: /opt/spark
+  
+  tasks:
+    - name: Create Spark metrics.properties for Prometheus
+      copy:
+        dest: "{{ spark_home }}/conf/metrics.properties"
+        owner: cloudadmin
+        group: cloudadmin
+        mode: '0644'
+        content: |
+          # Spark Prometheus Metrics Configuration
+          # Master metrics: http://node1:8081/metrics/master/prometheus/
+          # Worker metrics: http://nodeX:8082/metrics/prometheus/
+          
+          *.sink.prometheusServlet.class=org.apache.spark.metrics.sink.PrometheusServlet
+          *.sink.prometheusServlet.path=/metrics/prometheus
+          master.sink.prometheusServlet.path=/metrics/master/prometheus
+          applications.sink.prometheusServlet.path=/metrics/applications/prometheus
+      register: spark_metrics_config
+
+    - name: Restart Spark Master if config changed
+      systemd:
+        name: spark-master
+        state: restarted
+      when: 
+        - spark_metrics_config.changed
+        - inventory_hostname == 'node1'
+      ignore_errors: yes
+
+    - name: Restart Spark Worker if config changed
+      systemd:
+        name: spark-worker
+        state: restarted
+      when: spark_metrics_config.changed
+      ignore_errors: yes
+
+# ============================================================
+# Solr Prometheus Exporter
+# ============================================================
+- name: Configure Solr Prometheus Exporter
+  hosts: solr[0]  # Nur auf einem Node - scraped alle Solr-Nodes
+  become: yes
+  vars:
+    solr_home: /opt/solr
+    solr_exporter_port: 9854
+    zookeeper_connect: "node1.{{ domain }}:2181,node2.{{ domain }}:2181,node3.{{ domain }}:2181"
+  
+  tasks:
+    - name: Create Solr Exporter systemd service
+      copy:
+        dest: /etc/systemd/system/solr-exporter.service
+        content: |
+          [Unit]
+          Description=Solr Prometheus Exporter
+          After=network.target solr.service
+          Requires=solr.service
+          
+          [Service]
+          Type=simple
+          User=cloudadmin
+          Group=cloudadmin
+          WorkingDirectory={{ solr_home }}/prometheus-exporter
+          ExecStart={{ solr_home }}/prometheus-exporter/bin/solr-exporter \
+            -p {{ solr_exporter_port }} \
+            -z {{ zookeeper_connect }} \
+            -f {{ solr_home }}/prometheus-exporter/conf/solr-exporter-config.xml \
+            -n 8
+          Restart=on-failure
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+      notify: reload systemd
+
+    - name: Enable and start Solr Exporter
+      systemd:
+        name: solr-exporter
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Wait for Solr Exporter to start
+      wait_for:
+        port: "{{ solr_exporter_port }}"
+        timeout: 60
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+# ============================================================
+# ZooKeeper Prometheus Metrics
+# ============================================================
+# ZooKeeper 3.8+ hat eingebaute Prometheus-Metriken!
+# Aktiviert über zoo.cfg:
+#   metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider
+#   metricsProvider.httpPort=7070
+#
+# Keine zusätzliche Installation erforderlich.
+# Metriken verfügbar auf: http://nodeX:7070/metrics
+
+# ============================================================
+# Update Prometheus Configuration
+# ============================================================
+- name: Update Prometheus with working exporter endpoints
+  hosts: monitoring
+  become: yes
+  vars:
+    prometheus_home: /opt/prometheus
+    prometheus_user: cloudadmin
+  
+  tasks:
+    - name: Update Prometheus configuration
+      copy:
+        dest: "{{ prometheus_home }}/prometheus.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_user }}"
+        content: |
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 15s
+            scrape_timeout: 10s
+          
+          scrape_configs:
+            # Prometheus selbst
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+            
+            # Node Exporter - System-Metriken aller Nodes
+            - job_name: 'node'
+              static_configs:
+                - targets:
+                    - 'node0.{{ domain }}:9100'
+                    - 'node1.{{ domain }}:9100'
+                    - 'node2.{{ domain }}:9100'
+                    - 'node3.{{ domain }}:9100'
+                    - 'node4.{{ domain }}:9100'
+              relabel_configs:
+                - source_labels: [__address__]
+                  regex: '(.+)\.{{ domain }}:.+'
+                  target_label: node
+                  replacement: '$1'
+            
+            # ZooKeeper Cluster - via zookeeper-exporter
+            - job_name: 'zookeeper'
+              static_configs:
+                - targets:
+                    - 'node1.{{ domain }}:7070'
+                    - 'node2.{{ domain }}:7070'
+                    - 'node3.{{ domain }}:7070'
+              relabel_configs:
+                - source_labels: [__address__]
+                  regex: '(.+)\.{{ domain }}:.+'
+                  target_label: node
+                  replacement: '$1'
+            
+            # Solr Cloud - via solr-exporter (sammelt von allen Solr-Nodes)
+            - job_name: 'solr'
+              static_configs:
+                - targets:
+                    - 'node1.{{ domain }}:9854'
+              relabel_configs:
+                - source_labels: [__address__]
+                  regex: '(.+)\.{{ domain }}:.+'
+                  target_label: node
+                  replacement: '$1'
+            
+            # Spark Master - eingebauter Prometheus-Endpunkt
+            - job_name: 'spark-master'
+              metrics_path: '/metrics/master/prometheus/'
+              static_configs:
+                - targets: ['node1.{{ domain }}:8081']
+                  labels:
+                    role: master
+            
+            # Spark Workers - eingebauter Prometheus-Endpunkt
+            - job_name: 'spark-worker'
+              metrics_path: '/metrics/prometheus/'
+              static_configs:
+                - targets:
+                    - 'node1.{{ domain }}:8082'
+                    - 'node2.{{ domain }}:8082'
+                    - 'node3.{{ domain }}:8082'
+                    - 'node4.{{ domain }}:8082'
+                  labels:
+                    role: worker
+              relabel_configs:
+                - source_labels: [__address__]
+                  regex: '(.+)\.{{ domain }}:.+'
+                  target_label: node
+                  replacement: '$1'
+      notify: restart prometheus
+
+  handlers:
+    - name: restart prometheus
+      systemd:
+        name: prometheus
+        state: restarted

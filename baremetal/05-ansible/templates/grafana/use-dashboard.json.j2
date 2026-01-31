@@ -1,0 +1,390 @@
+{
+  "id": null,
+    "uid": "cloudkoffer-use",
+    "title": "Cloudkoffer - USE Dashboard (Utilization, Saturation, Errors)",
+    "tags": ["cloudkoffer", "use", "infrastructure"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "node",
+          "type": "query",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "query": "label_values(node_uname_info, instance)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "current": { "selected": true, "text": "All", "value": "$__all" }
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "🖥️ CPU - Utilization",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.7 },
+                { "color": "red", "value": 0.9 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "1 - avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\", instance=~\"$node\"}[5m]))",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "🖥️ CPU - Saturation (Load Average)",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 4 },
+                { "color": "red", "value": 8 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "node_load1{instance=~\"$node\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} - 1m"
+          },
+          {
+            "expr": "node_load5{instance=~\"$node\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} - 5m"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "🖥️ CPU - Errors (Context Switches/s)",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(node_context_switches_total{instance=~\"$node\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "💾 Memory - Utilization",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.7 },
+                { "color": "red", "value": 0.9 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "1 - (node_memory_MemAvailable_bytes{instance=~\"$node\"} / node_memory_MemTotal_bytes{instance=~\"$node\"})",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "💾 Memory - Saturation (Swap Used)",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 8, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1073741824 },
+                { "color": "red", "value": 4294967296 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "node_memory_SwapTotal_bytes{instance=~\"$node\"} - node_memory_SwapFree_bytes{instance=~\"$node\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "💾 Memory - OOM Kills",
+        "type": "stat",
+        "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "increase(node_vmstat_oom_kill{instance=~\"$node\"}[1h])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 7,
+        "title": "💿 Disk - Utilization",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.7 },
+                { "color": "red", "value": 0.9 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "1 - (node_filesystem_avail_bytes{instance=~\"$node\", mountpoint=\"/\"} / node_filesystem_size_bytes{instance=~\"$node\", mountpoint=\"/\"})",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} /"
+          },
+          {
+            "expr": "1 - (node_filesystem_avail_bytes{instance=~\"$node\", mountpoint=\"/data\"} / node_filesystem_size_bytes{instance=~\"$node\", mountpoint=\"/data\"})",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} /data"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "💿 Disk I/O - Saturation",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.7 },
+                { "color": "red", "value": 0.9 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(node_disk_io_time_seconds_total{instance=~\"$node\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} - {% raw %}{{ device }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "💿 Disk - Errors",
+        "type": "stat",
+        "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "node_filesystem_device_error{instance=~\"$node\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} - {% raw %}{{ mountpoint }}{% endraw %}"
+          }
+        ],
+        "options": { "graphMode": "none", "colorMode": "value" }
+      },
+      {
+        "id": 10,
+        "title": "🌐 Network - Utilization (Bandwidth)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 24, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bps",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total{instance=~\"$node\", device!~\"lo|docker.*|veth.*\"}[5m]) * 8",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} RX"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total{instance=~\"$node\", device!~\"lo|docker.*|veth.*\"}[5m]) * 8",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} TX"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "🌐 Network - Saturation (Drops)",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 24, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_drop_total{instance=~\"$node\", device!~\"lo|docker.*|veth.*\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} RX drops"
+          },
+          {
+            "expr": "rate(node_network_transmit_drop_total{instance=~\"$node\", device!~\"lo|docker.*|veth.*\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} TX drops"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "🌐 Network - Errors",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 24, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_errs_total{instance=~\"$node\", device!~\"lo|docker.*|veth.*\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} RX errors"
+          },
+          {
+            "expr": "rate(node_network_transmit_errs_total{instance=~\"$node\", device!~\"lo|docker.*|veth.*\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} TX errors"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "📊 Cluster Overview",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 32, "w": 24, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null }
+              ]
+            }
+          },
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "Total Cores" }, "properties": [{ "id": "unit", "value": "short" }] },
+            { "matcher": { "id": "byName", "options": "Total Memory" }, "properties": [{ "id": "unit", "value": "bytes" }] },
+            { "matcher": { "id": "byName", "options": "Active Nodes" }, "properties": [{ "id": "unit", "value": "short" }] }
+          ]
+        },
+        "targets": [
+          { "expr": "count(up{job=\"node\"})", "legendFormat": "Active Nodes" },
+          { "expr": "sum(count without(cpu, mode) (node_cpu_seconds_total{mode=\"idle\"}))", "legendFormat": "Total Cores" },
+          { "expr": "sum(node_memory_MemTotal_bytes)", "legendFormat": "Total Memory" }
+        ],
+        "options": { "graphMode": "none", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      }
+    ]
+}

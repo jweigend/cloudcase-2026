@@ -1,0 +1,125 @@
+---
+# Grafana Dashboards Deployment
+# Deploys USE and RED dashboards to Grafana on node0
+
+- name: Deploy Grafana Dashboards
+  hosts: node0
+  become: true
+  vars:
+    grafana_url: "http://localhost:3000"
+    grafana_user: "admin"
+    grafana_password: "admin"  # Change this!
+
+  tasks:
+    - name: Wait for Grafana to be ready
+      uri:
+        url: "{{ grafana_url }}/api/health"
+        method: GET
+        status_code: 200
+      register: grafana_health
+      retries: 10
+      delay: 5
+      until: grafana_health.status == 200
+
+    - name: Create Grafana dashboards directory
+      file:
+        path: /etc/grafana/provisioning/dashboards
+        state: directory
+        mode: '0755'
+
+    - name: Create Grafana datasources directory
+      file:
+        path: /etc/grafana/provisioning/datasources
+        state: directory
+        mode: '0755'
+
+    - name: Configure Prometheus datasource
+      copy:
+        dest: /etc/grafana/provisioning/datasources/prometheus.yml
+        mode: '0644'
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              uid: prometheus
+              access: proxy
+              url: http://localhost:9090
+              isDefault: true
+              editable: false
+      notify: restart grafana
+
+    - name: Configure dashboard provisioning
+      copy:
+        dest: /etc/grafana/provisioning/dashboards/default.yml
+        mode: '0644'
+        content: |
+          apiVersion: 1
+          providers:
+            - name: 'Cloudkoffer'
+              orgId: 1
+              folder: 'Cloudkoffer'
+              folderUid: 'cloudkoffer'
+              type: file
+              disableDeletion: false
+              updateIntervalSeconds: 30
+              allowUiUpdates: true
+              options:
+                path: /var/lib/grafana/dashboards
+      notify: restart grafana
+
+    - name: Create dashboards directory
+      file:
+        path: /var/lib/grafana/dashboards
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+
+    - name: Deploy USE Dashboard
+      template:
+        src: templates/grafana/use-dashboard.json.j2
+        dest: /var/lib/grafana/dashboards/use-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+    - name: Deploy RED Dashboard
+      template:
+        src: templates/grafana/red-dashboard.json.j2
+        dest: /var/lib/grafana/dashboards/red-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+    - name: Deploy Spark Dashboard
+      template:
+        src: templates/grafana/spark-dashboard.json.j2
+        dest: /var/lib/grafana/dashboards/spark-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+    - name: Deploy Solr Dashboard
+      template:
+        src: templates/grafana/solr-dashboard.json.j2
+        dest: /var/lib/grafana/dashboards/solr-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+    - name: Ensure Grafana is running
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted

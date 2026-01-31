@@ -69,7 +69,7 @@
           syncLimit=5
           dataDir={{ zk_data }}
           clientPort=2181
-          # AdminServer bleibt auf Standard-Port 8080
+          # AdminServer auf Standard-Port 8080
           
           server.1=node1.{{ domain }}:2888:3888
           server.2=node2.{{ domain }}:2888:3888
@@ -79,6 +79,10 @@
           autopurge.purgeInterval=24
           
           4lw.commands.whitelist=ruok,stat,mntr,srvr
+          
+          # Prometheus Metrics Provider (Port 7070)
+          metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider
+          metricsProvider.httpPort=7070
 
     - name: Configure JVM settings
       copy:

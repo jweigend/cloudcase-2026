@@ -1,0 +1,340 @@
+{
+  "id": null,
+    "uid": "cloudkoffer-spark",
+    "title": "Cloudkoffer - Apache Spark Cluster",
+    "tags": ["cloudkoffer", "spark", "bigdata"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "annotations": { "list": [] },
+    "panels": [
+      {
+        "id": 100,
+        "title": "🎛️ Cluster Overview",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 1,
+        "title": "Cluster Status",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "type": "value", "options": { "1": { "text": "ALIVE", "color": "green" } } },
+              { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } }
+            ],
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          }
+        },
+        "targets": [{ "expr": "up{job=\"spark-master\"}", "legendFormat": "Master" }],
+        "options": { "graphMode": "none", "colorMode": "background" }
+      },
+      {
+        "id": 2,
+        "title": "Active Workers",
+        "type": "stat",
+        "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": { "mode": "absolute", "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "green", "value": 4 }
+            ]}
+          }
+        },
+        "targets": [{ "expr": "metrics_master_aliveWorkers_Value", "legendFormat": "Workers" }],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 3,
+        "title": "Running Applications",
+        "type": "stat",
+        "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+          }
+        },
+        "targets": [{ "expr": "metrics_master_apps_Value", "legendFormat": "Apps" }],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 4,
+        "title": "Waiting Applications",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": { "mode": "absolute", "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]}
+          }
+        },
+        "targets": [{ "expr": "metrics_master_waitingApps_Value", "legendFormat": "Waiting" }],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 5,
+        "title": "Total Cores",
+        "type": "stat",
+        "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }
+          }
+        },
+        "targets": [{ "expr": "sum(metrics_worker_cores_Value)", "legendFormat": "Cores" }],
+        "options": { "graphMode": "none", "colorMode": "value" }
+      },
+      {
+        "id": 6,
+        "title": "Total Memory",
+        "type": "stat",
+        "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes",
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] }
+          }
+        },
+        "targets": [{ "expr": "sum(metrics_worker_mem_MB_Value)", "legendFormat": "Memory" }],
+        "options": { "graphMode": "none", "colorMode": "value" }
+      },
+      {
+        "id": 200,
+        "title": "📊 Resource Utilization",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 7,
+        "title": "Cores - Used vs Free",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 30, "lineWidth": 2, "stacking": { "mode": "normal" } }
+          },
+          "overrides": [
+            { "matcher": { "id": "byRegexp", "options": ".*Used" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+            { "matcher": { "id": "byRegexp", "options": ".*Free" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+          ]
+        },
+        "targets": [
+          { "expr": "metrics_worker_coresUsed_Value", "legendFormat": "{% raw %}{{ instance }}{% endraw %} Used" },
+          { "expr": "metrics_worker_coresFree_Value", "legendFormat": "{% raw %}{{ instance }}{% endraw %} Free" }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Memory - Used vs Free (MB)",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes",
+            "custom": { "fillOpacity": 30, "lineWidth": 2, "stacking": { "mode": "normal" } }
+          },
+          "overrides": [
+            { "matcher": { "id": "byRegexp", "options": ".*Used" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+            { "matcher": { "id": "byRegexp", "options": ".*Free" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+          ]
+        },
+        "targets": [
+          { "expr": "metrics_worker_memUsed_MB_Value", "legendFormat": "{% raw %}{{ instance }}{% endraw %} Used" },
+          { "expr": "metrics_worker_memFree_MB_Value", "legendFormat": "{% raw %}{{ instance }}{% endraw %} Free" }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Core Utilization %",
+        "type": "gauge",
+        "gridPos": { "x": 0, "y": 14, "w": 12, "h": 6 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0, "max": 1,
+            "thresholds": { "mode": "percentage", "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]}
+          }
+        },
+        "targets": [
+          { "expr": "metrics_worker_coresUsed_Value / (metrics_worker_coresUsed_Value + metrics_worker_coresFree_Value)", "legendFormat": "{% raw %}{{ instance }}{% endraw %}" }
+        ],
+        "options": { "showThresholdLabels": false, "showThresholdMarkers": true }
+      },
+      {
+        "id": 10,
+        "title": "Memory Utilization %",
+        "type": "gauge",
+        "gridPos": { "x": 12, "y": 14, "w": 12, "h": 6 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0, "max": 1,
+            "thresholds": { "mode": "percentage", "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]}
+          }
+        },
+        "targets": [
+          { "expr": "metrics_worker_memUsed_MB_Value / (metrics_worker_memUsed_MB_Value + metrics_worker_memFree_MB_Value)", "legendFormat": "{% raw %}{{ instance }}{% endraw %}" }
+        ],
+        "options": { "showThresholdLabels": false, "showThresholdMarkers": true }
+      },
+      {
+        "id": 300,
+        "title": "👷 Workers",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 20, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 11,
+        "title": "Worker Status",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 21, "w": 24, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } },
+              { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } }
+            ],
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          }
+        },
+        "targets": [
+          { "expr": "up{job=\"spark-worker\"}", "legendFormat": "{% raw %}{{ instance }}{% endraw %}" }
+        ],
+        "options": { "graphMode": "none", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      },
+      {
+        "id": 12,
+        "title": "Executors per Worker",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 25, "w": 12, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 20, "lineWidth": 2, "drawStyle": "bars" }
+          }
+        },
+        "targets": [
+          { "expr": "metrics_worker_executors_Value", "legendFormat": "{% raw %}{{ instance }}{% endraw %}" }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Worker Details",
+        "type": "table",
+        "gridPos": { "x": 12, "y": 25, "w": 12, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": { "custom": { "align": "center" } },
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "Cores" }, "properties": [{ "id": "unit", "value": "short" }] },
+            { "matcher": { "id": "byName", "options": "Memory" }, "properties": [{ "id": "unit", "value": "decmbytes" }] }
+          ]
+        },
+        "targets": [
+          { "expr": "metrics_worker_cores_Value", "legendFormat": "{% raw %}{{ instance }}{% endraw %}", "format": "table", "instant": true }
+        ],
+        "transformations": [
+          { "id": "organize", "options": { "renameByName": { "Value": "Cores", "instance": "Worker" } } }
+        ],
+        "options": { "showHeader": true }
+      },
+      {
+        "id": 400,
+        "title": "📈 Trends",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 33, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 14,
+        "title": "Workers Over Time",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 34, "w": 8, "h": 6 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 10, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          { "expr": "metrics_master_workers_Value", "legendFormat": "Total" },
+          { "expr": "metrics_master_aliveWorkers_Value", "legendFormat": "Alive" }
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Applications Over Time",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 34, "w": 8, "h": 6 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 10, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          { "expr": "metrics_master_apps_Value", "legendFormat": "Running" },
+          { "expr": "metrics_master_waitingApps_Value", "legendFormat": "Waiting" }
+        ]
+      },
+      {
+        "id": 16,
+        "title": "Cluster Cores Over Time",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 34, "w": 8, "h": 6 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 20, "lineWidth": 2, "stacking": { "mode": "normal" } }
+          }
+        },
+        "targets": [
+          { "expr": "sum(metrics_worker_coresUsed_Value)", "legendFormat": "Used" },
+          { "expr": "sum(metrics_worker_coresFree_Value)", "legendFormat": "Free" }
+        ]
+      }
+    ]
+}
