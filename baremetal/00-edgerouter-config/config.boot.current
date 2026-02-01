@@ -112,7 +112,7 @@ service {
                 default-router 192.168.1.1
                 dns-server 192.168.1.1
                 domain-name cloud.local
-                lease 86400
+                lease 604800
                 start 192.168.1.38 {
                     stop 192.168.1.243
                 }
