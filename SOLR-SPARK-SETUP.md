@@ -9,43 +9,47 @@ Konfiguration über Cloud-Init.
 ## Architektur
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                          │
-│  │ ZooKeeper 1 │  │ ZooKeeper 2 │  │ ZooKeeper 3 │     ZK Ensemble          │
-│  │   (NUC1)    │◄─►│   (NUC2)    │◄─►│   (NUC3)    │                          │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                          │
-│         │                │                │                                  │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐  ┌───────────┐  ┌───────────┐
-│  │   Solr 1    │  │   Solr 2    │  │   Solr 3    │  │  Solr 4   │  │  Solr 5   │
-│  │   (NUC1)    │  │   (NUC2)    │  │   (NUC3)    │  │  (NUC4)   │  │  (NUC5)   │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └───────────┘  └───────────┘
-│                                                                              │
-│                   ┌─────────────┐                                            │
-│                   │Spark Master │                                            │
-│                   │   (NUC2)    │                                            │
-│                   └──────┬──────┘                                            │
-│         ┌────────────────┼────────────────┐                                  │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐                          │
-│  │Spark Worker │  │Spark Worker │  │Spark Worker │                          │
-│  │   (NUC3)    │  │   (NUC4)    │  │   (NUC5)    │                          │
-│  └─────────────┘  └─────────────┘  └─────────────┘                          │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                    │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐                               │
+│  │ ZooKeeper 1 │   │ ZooKeeper 2 │   │ ZooKeeper 3 │     ZK Ensemble               │
+│  │   (node1)   │◄─►│   (node2)   │◄─►│   (node3)   │                               │
+│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘                               │
+│         │                 │                 │                                      │
+│  ┌──────▼──────┐   ┌──────▼──────┐   ┌──────▼──────┐   ┌─────────────┐             │
+│  │   Solr 1    │   │   Solr 2    │   │   Solr 3    │   │   Solr 4    │             │
+│  │   (node1)   │   │   (node2)   │   │   (node3)   │   │   (node4)   │             │
+│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘             │
+│                                                                                    │
+│                          ┌─────────────┐                                           │
+│                          │Spark Master │                                           │
+│                          │   (node0)   │                                           │
+│                          └──────┬──────┘                                           │
+│         ┌────────────────┬──────┴──────┬────────────────┐                          │
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐                │
+│  │Spark Worker │  │Spark Worker │  │Spark Worker │  │Spark Worker │                │
+│  │   (node1)   │  │   (node2)   │  │   (node3)   │  │   (node4)   │                │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘                │
+│                                                                                    │
+│  DNS (dnsmasq) läuft auf allen Nodes → EdgeRouter → Internet                      │
+│                                                                                    │
+└────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 1. ZooKeeper
 
-**Cloud-Init:** `baremetal/05-install-zookeeper/cloud-init.yaml`
+**Ansible Playbook:** `baremetal/05-ansible/zookeeper.yml`
 
 | Parameter | Wert |
 |-----------|------|
-| Nodes | NUC1, NUC2, NUC3 |
+| Nodes | node1, node2, node3 |
 | Port | 2181 |
-| Heap | 1 GB |
+| Heap | 512 MB |
 | Data Dir | `/data/zookeeper` |
 
-### zoo.cfg (via Cloud-Init)
+### zoo.cfg (via Ansible)
 
 ```properties
 tickTime=2000
@@ -54,39 +58,40 @@ syncLimit=5
 dataDir=/data/zookeeper
 clientPort=2181
 
-server.1=nuc1:2888:3888
-server.2=nuc2:2888:3888
-server.3=nuc3:2888:3888
+server.1=node1.cloud.local:2888:3888
+server.2=node2.cloud.local:2888:3888
+server.3=node3.cloud.local:2888:3888
+
+4lw.commands.whitelist=mntr,conf,ruok,stat,srvr
 ```
 
 ### Services starten
 
 ```bash
-# Alle 3 gleichzeitig starten!
-for node in nuc1 nuc2 nuc3; do
-    ssh cloudadmin@$node 'sudo systemctl start zookeeper'
-done
+# Via Ansible
+cd baremetal/05-ansible
+ansible-playbook -i inventory.yml zookeeper.yml
 ```
 
 ---
 
 ## 2. Solr Cloud
 
-**Cloud-Init:** `baremetal/06-install-solr/cloud-init.yaml`
+**Ansible Playbook:** `baremetal/05-ansible/solr.yml`
 
 | Parameter | Wert |
 |-----------|------|
-| Nodes | Alle (NUC1-5) |
+| Nodes | node1, node2, node3, node4 |
 | Port | 8983 |
 | Heap | 8 GB |
 | JMX | 9404 |
 
-### solr.in.sh (via Cloud-Init)
+### solr.in.sh (via Ansible)
 
 ```bash
 SOLR_HEAP="8g"
 SOLR_HOME="/data/solr"
-ZK_HOST="nuc1:2181,nuc2:2181,nuc3:2181"
+ZK_HOST="node1:2181,node2:2181,node3:2181"
 ENABLE_REMOTE_JMX_OPTS="true"
 RMI_PORT="9404"
 ```
@@ -109,24 +114,22 @@ cd baremetal/10-create-solr-collection
 
 ## 3. Spark
 
-**Cloud-Init:** 
-- Master: `baremetal/07-install-spark/cloud-init-master.yaml`
-- Worker: `baremetal/07-install-spark/cloud-init-worker.yaml`
+**Ansible Playbook:** `baremetal/05-ansible/spark.yml`
 
 | Komponente | Node | Heap |
 |------------|------|------|
-| Master | NUC2 | 2 GB |
-| Worker | NUC3-5 | 16 GB |
+| Master | node0 | 2 GB |
+| Worker | node1-4 | 6 GB |
 
-### spark-defaults.conf (via Cloud-Init)
+### spark-defaults.conf (via Ansible)
 
 ```properties
-spark.master                     spark://nuc2:7077
+spark.master                     spark://node0.cloud.local:7077
 spark.local.dir                  /data/spark
-spark.executor.memory            8g
+spark.executor.memory            6g
 spark.executor.cores             2
-spark.driver.memory              2g
-spark.sql.shuffle.partitions     12
+spark.driver.memory              4g
+spark.sql.shuffle.partitions     48
 ```
 
 ---
@@ -135,11 +138,11 @@ spark.sql.shuffle.partitions     12
 
 | Node | Solr | Spark | ZooKeeper | Monitoring |
 |------|------|-------|-----------|------------|
-| NUC1 | 8 GB | - | 1 GB | 2 GB |
-| NUC2 | 8 GB | 2 GB (Master) | 1 GB | - |
-| NUC3 | 8 GB | 16 GB (Worker) | 1 GB | - |
-| NUC4 | 8 GB | 16 GB (Worker) | - | - |
-| NUC5 | 8 GB | 16 GB (Worker) | - | - |
+| node0 | - | Master 2 GB | - | Prometheus, Grafana |
+| node1 | 8 GB | Worker 6 GB | 512 MB | - |
+| node2 | 8 GB | Worker 6 GB | 512 MB | - |
+| node3 | 8 GB | Worker 6 GB | 512 MB | - |
+| node4 | 8 GB | Worker 6 GB | - | - |
 
 ---
 
@@ -148,10 +151,12 @@ spark.sql.shuffle.partitions     12
 | Service | Port |
 |---------|------|
 | ZooKeeper | 2181, 2888, 3888 |
+| ZooKeeper Metrics | 7070 |
 | Solr | 8983 |
 | Solr JMX | 9404 |
-| Spark Master | 7077, 8080 |
-| Spark Worker | 8081 |
+| Spark Master | 7077 |
+| Spark Master UI | 8081 |
+| Spark Worker UI | 8081 |
 | Spark JMX | 9405 |
 
 ---

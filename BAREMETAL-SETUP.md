@@ -18,14 +18,14 @@ Provisioning der 5 Intel NUCs mit Ubuntu Server und Cloud-Init.
 │         ▼                                                            │
 │      [ NUC von USB booten → automatische Ubuntu Installation ]      │
 │         ▼                                                            │
-│  04-post-install/         Cloud-Init Configs für Services           │
+│  05-ansible/              Ansible Playbooks für alle Services       │
 │         ▼                                                            │
-│  05-install-zookeeper/    cloud-init.yaml → NUC1-3                  │
-│  06-install-solr/         cloud-init.yaml → alle Nodes              │
-│  07-install-spark/        cloud-init-master.yaml → NUC2             │
-│                           cloud-init-worker.yaml → NUC3-5           │
-│  08-install-monitoring/   cloud-init-prometheus.yaml → NUC1         │
-│                           cloud-init-exporter.yaml → NUC2-5         │
+│    zookeeper.yml          → node1-3                                 │
+│    solr.yml               → node1-4                                 │
+│    spark.yml              → Master: node0, Workers: node1-4         │
+│    monitoring.yml         → Prometheus/Grafana: node0               │
+│    dnsmasq.yml            → alle Nodes                              │
+│    jupyter.yml            → node0                                   │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -48,9 +48,8 @@ Erstellt für jeden Node:
 
 ```bash
 cd baremetal/01-create-iso
-./create-iso.sh nuc1
-./create-iso.sh nuc2
-# ... für alle Nodes
+./create-iso.sh
+# Erstellt ein universelles ISO für alle Nodes
 ```
 
 ---
@@ -59,39 +58,37 @@ cd baremetal/01-create-iso
 
 ```bash
 cd baremetal/03-write-usb
-./write-usb.sh nuc1 /dev/sdb
+./write-usb.sh /dev/sdb
 ```
 
 NUC von USB booten (F10), "Cloudkoffer Autoinstall" wählen.
 
 ---
 
-## Schritt 4: Cloud-Init anwenden
+## Schritt 4: Ansible Playbooks ausführen
 
 Nach der Ubuntu-Installation:
 
 ```bash
-cd baremetal/04-post-install
-./apply-cloud-init.sh nuc1
-./apply-cloud-init.sh nuc2
-# ... für alle Nodes
+cd baremetal/05-ansible
+ansible-playbook -i inventory.yml site.yml
 ```
 
-Das Skript kopiert automatisch die passenden Cloud-Init Dateien basierend auf der Node-Rolle.
+Das installiert alle Services automatisch auf den richtigen Nodes.
 
 ---
 
-## Cloud-Init Dateien
+## Ansible Playbooks
 
-| Verzeichnis | Datei | Nodes | Inhalt |
-|-------------|-------|-------|--------|
-| 04-post-install | base.yaml | Alle | Kernel-Tuning, Limits |
-| 05-install-zookeeper | cloud-init.yaml | NUC1-3 | ZK 3.9.2, zoo.cfg, systemd |
-| 06-install-solr | cloud-init.yaml | Alle | Solr 9.5, solr.in.sh, systemd |
-| 07-install-spark | cloud-init-master.yaml | NUC2 | Spark Master, spark-env.sh |
-| 07-install-spark | cloud-init-worker.yaml | NUC3-5 | Spark Worker, systemd |
-| 08-install-monitoring | cloud-init-prometheus.yaml | NUC1 | Prometheus, Grafana, Node Exporter |
-| 08-install-monitoring | cloud-init-exporter.yaml | NUC2-5 | Node Exporter |
+| Playbook | Nodes | Inhalt |
+|----------|-------|--------|
+| dnsmasq.yml | Alle | DNS-Cache auf allen Nodes |
+| zookeeper.yml | node1-3 | ZK 3.9.4, zoo.cfg, systemd |
+| solr.yml | node1-4 | Solr 9.8, solr.in.sh, systemd |
+| spark.yml | node0-4 | Master auf node0, Workers auf node1-4 |
+| monitoring.yml | node0 | Prometheus, Grafana, Node Exporter |
+| prometheus-exporters.yml | Alle | Node Exporter, JMX Exporter |
+| jupyter.yml | node0 | JupyterLab mit PySpark |
 
 ---
 

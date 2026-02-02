@@ -48,11 +48,11 @@ Das Cloudkoffer-Projekt verwendet **ein einziges ISO-Image** für alle 5 NUCs. D
 │                                                                 │
 │   IP → Hostname → Rolle → Cloud-Init Dateien                   │
 │                                                                 │
-│   192.168.1.100 → node0 → DNS, Prometheus, Grafana             │
-│   192.168.1.101 → node1 → ZooKeeper, Solr, Spark-Master        │
-│   192.168.1.102 → node2 → ZooKeeper, Solr, Spark-Worker        │
-│   192.168.1.103 → node3 → ZooKeeper, Solr, Spark-Worker        │
-│   192.168.1.104 → node4 → Solr, Spark-Worker                   │
+│   192.168.1.100 → node0 → Spark-Master, Prometheus, Grafana, DNS  │
+│   192.168.1.101 → node1 → ZooKeeper, Solr, Spark-Worker, DNS      │
+│   192.168.1.102 → node2 → ZooKeeper, Solr, Spark-Worker, DNS      │
+│   192.168.1.103 → node3 → ZooKeeper, Solr, Spark-Worker, DNS      │
+│   192.168.1.104 → node4 → Solr, Spark-Worker, DNS                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

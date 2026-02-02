@@ -17,13 +17,13 @@ Ansible Playbooks zur Installation des Big Data Stacks auf dem Cloudkoffer-Clust
 
 ## Cluster Übersicht
 
-| Node  | IP            | Rolle                                    |
-|-------|---------------|------------------------------------------|
-| node0 | 192.168.1.100 | Prometheus, Grafana, JupyterLab          |
-| node1 | 192.168.1.101 | ZooKeeper, Solr, Spark-Master            |
-| node2 | 192.168.1.102 | ZooKeeper, Solr, Spark-Worker            |
-| node3 | 192.168.1.103 | ZooKeeper, Solr, Spark-Worker            |
-| node4 | 192.168.1.104 | Solr, Spark-Worker                       |
+| Node  | IP            | Rolle                                              |
+|-------|---------------|----------------------------------------------------|
+| node0 | 192.168.1.100 | Spark-Master, Prometheus, Grafana, JupyterLab, DNS |
+| node1 | 192.168.1.101 | ZooKeeper, Solr, Spark-Worker, DNS                 |
+| node2 | 192.168.1.102 | ZooKeeper, Solr, Spark-Worker, DNS                 |
+| node3 | 192.168.1.103 | ZooKeeper, Solr, Spark-Worker, DNS                 |
+| node4 | 192.168.1.104 | Solr, Spark-Worker, DNS                            |
 
 > **DNS-Architektur:** Jeder Node hat einen lokalen dnsmasq-Cache, der Anfragen
 > an den EdgeRouter (192.168.1.1) weiterleitet. Kein Single Point of Failure.

@@ -6,12 +6,12 @@ Ein portabler Big Data Cluster auf 5 Intel NUCs für Demos, Workshops und Entwic
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         CLOUDKOFFER 2026                                │
 │                                                                         │
-│   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐          │
-│   │  node0  │ │  node1  │ │  node2  │ │  node3  │ │  node4  │          │
-│   │Jupyter  │ │  Master │ │  Worker │ │  Worker │ │  Worker │          │
-│   │Grafana  │ │   ZK    │ │   ZK    │ │   ZK    │ │  Solr   │          │
-│   │Promethe.│ │  Solr   │ │  Solr   │ │  Solr   │ │  Spark  │          │
-│   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘          │
+│   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐           │
+│   │  node0  │ │  node1  │ │  node2  │ │  node3  │ │  node4  │           │
+│   │Jupyter  │ │  Master │ │  Worker │ │  Worker │ │  Worker │           │
+│   │Grafana  │ │   ZK    │ │   ZK    │ │   ZK    │ │  Solr   │           │
+│   │Promethe.│ │  Solr   │ │  Solr   │ │  Solr   │ │  Spark  │           │
+│   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘           │
 │        │           │           │           │           │                │
 │     (dnsmasq)   (dnsmasq)  (dnsmasq)   (dnsmasq)   (dnsmasq)            │
 │        │           │           │           │           │                │
@@ -107,11 +107,11 @@ Verteilte Datenverarbeitung:
 
 | Node | IP | Hostname | Rolle |
 |------|-----|----------|-------|
-| node0 | 192.168.1.100 | node0.cloud.local | Monitoring, Jupyter |
-| node1 | 192.168.1.101 | node1.cloud.local | ZK, Solr, Spark Master |
-| node2 | 192.168.1.102 | node2.cloud.local | ZK, Solr, Spark Worker |
-| node3 | 192.168.1.103 | node3.cloud.local | ZK, Solr, Spark Worker |
-| node4 | 192.168.1.104 | node4.cloud.local | Solr, Spark Worker |
+| node0 | 192.168.1.100 | node0.cloud.local | Spark Master, Monitoring, Jupyter, DNS |
+| node1 | 192.168.1.101 | node1.cloud.local | ZK, Solr, Spark Worker, DNS |
+| node2 | 192.168.1.102 | node2.cloud.local | ZK, Solr, Spark Worker, DNS |
+| node3 | 192.168.1.103 | node3.cloud.local | ZK, Solr, Spark Worker, DNS |
+| node4 | 192.168.1.104 | node4.cloud.local | Solr, Spark Worker, DNS |
 
 - **Router**: 192.168.1.1 (EdgeRouter X, DHCP + DNS)
 - **Domain**: cloud.local

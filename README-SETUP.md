@@ -45,15 +45,15 @@ Portabler Big Data Cluster auf 5 Intel NUCs mit Solr Cloud, Spark, ZooKeeper und
 
 ## Netzwerk & Rollen
 
-| Node | IP | Rollen |
-|------|----|--------|
-| nuc1 | 192.168.0.100 | ZooKeeper, Solr, Prometheus, Grafana |
-| nuc2 | 192.168.0.101 | ZooKeeper, Solr, Spark Master |
-| nuc3 | 192.168.0.102 | ZooKeeper, Solr, Spark Worker |
-| nuc4 | 192.168.0.103 | Solr, Spark Worker |
-| nuc5 | 192.168.0.104 | Solr, Spark Worker |
+| Node  | IP            | Rollen                                             |
+|-------|---------------|----------------------------------------------------|
+| node0 | 192.168.1.100 | Spark Master, Prometheus, Grafana, JupyterLab, DNS |
+| node1 | 192.168.1.101 | ZooKeeper, Solr, Spark Worker, DNS                 |
+| node2 | 192.168.1.102 | ZooKeeper, Solr, Spark Worker, DNS                 |
+| node3 | 192.168.1.103 | ZooKeeper, Solr, Spark Worker, DNS                 |
+| node4 | 192.168.1.104 | Solr, Spark Worker, DNS                            |
 
-> ZK Leader per Election • Spark Worker nur auf NUC3-5
+> ZK Leader per Election • Spark Master auf node0 • 4 Workers auf node1-4 • DNS auf allen Nodes
 
 ---
 
@@ -61,10 +61,11 @@ Portabler Big Data Cluster auf 5 Intel NUCs mit Solr Cloud, Spark, ZooKeeper und
 
 | Verzeichnis | Zweck | Nodes |
 |-------------|-------|-------|
-| `/data/solr` | Solr Index | Alle |
-| `/data/spark` | Shuffle/Spill | NUC2-5 |
-| `/data/zookeeper` | ZK Data | NUC1-3 |
-| `/data/prometheus` | TSDB | NUC1 |
+| `/data/solr` | Solr Index | node1-4 |
+| `/data/spark` | Shuffle/Spill | node0-4 |
+| `/data/zookeeper` | ZK Data | node1-3 |
+| `/data/prometheus` | TSDB | node0 |
+| `/data/jupyter` | Notebooks | node0 |
 
 ---
 
@@ -72,14 +73,16 @@ Portabler Big Data Cluster auf 5 Intel NUCs mit Solr Cloud, Spark, ZooKeeper und
 
 | Service | Port | Nodes |
 |---------|------|-------|
-| ZooKeeper | 2181 | NUC1-3 |
-| Solr | 8983 | Alle |
-| Spark Master | 7077/8080 | NUC2 |
-| Spark Worker | 8081 | NUC3-5 |
-| Prometheus | 9090 | NUC1 |
-| Grafana | 3000 | NUC1 |
+| ZooKeeper | 2181 | node1-3 |
+| Solr | 8983 | node1-4 |
+| Spark Master | 7077/8081 | node0 |
+| Spark Worker | 8081 | node1-4 |
+| Prometheus | 9090 | node0 |
+| Grafana | 3000 | node0 |
+| JupyterLab | 8888 | node0 |
 | Node Exporter | 9100 | Alle |
-| JMX (Solr/Spark/ZK) | 9404-9406 | Alle |
+| DNS (dnsmasq) | 53 | Alle |
+| JMX (Solr/Spark/ZK) | 9404-9406 | node1-4 |
 
 ---
 
@@ -87,19 +90,19 @@ Portabler Big Data Cluster auf 5 Intel NUCs mit Solr Cloud, Spark, ZooKeeper und
 
 ```bash
 # ZooKeeper
-echo ruok | nc nuc1 2181
+echo ruok | nc node1 2181
 
 # Solr
-curl http://nuc1:8983/solr/admin/info/system
+curl http://node1:8983/solr/admin/info/system
 
 # Spark
-curl http://nuc2:8080
+curl http://node0:8081
 
 # Prometheus
-curl http://nuc1:9090/-/ready
+curl http://node0:9090/-/ready
 
 # Grafana
-curl http://nuc1:3000/api/health
+curl http://node0:3000/api/health
 ```
 
 ---
