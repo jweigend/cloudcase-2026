@@ -181,6 +181,15 @@
         mode: '0644'
         force: no  # Don't overwrite if user modified
 
+    - name: Deploy Drill-Down Architecture notebook
+      ansible.builtin.template:
+        src: templates/jupyter/05-drilldown-architecture.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/05-drilldown-architecture.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: no  # Don't overwrite if user modified
+
     - name: Create datasets directory
       ansible.builtin.file:
         path: "{{ jupyter_data }}/datasets"
