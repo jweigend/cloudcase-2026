@@ -103,7 +103,7 @@
             "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }
           }
         },
-        "targets": [{ "expr": "sum(metrics_worker_cores_Value)", "legendFormat": "Cores" }],
+        "targets": [{ "expr": "sum(metrics_worker_coresFree_Value) + sum(metrics_worker_coresUsed_Value)", "legendFormat": "Cores" }],
         "options": { "graphMode": "none", "colorMode": "value" }
       },
       {
@@ -118,7 +118,7 @@
             "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] }
           }
         },
-        "targets": [{ "expr": "sum(metrics_worker_mem_MB_Value)", "legendFormat": "Memory" }],
+        "targets": [{ "expr": "sum(metrics_worker_memFree_MB_Value) + sum(metrics_worker_memUsed_MB_Value)", "legendFormat": "Memory" }],
         "options": { "graphMode": "none", "colorMode": "value" }
       },
       {

@@ -50,7 +50,7 @@
             "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
           }
         },
-        "targets": [{ "expr": "sum(solr_metrics_core_num_docs)", "legendFormat": "Docs" }],
+        "targets": [{ "expr": "sum(solr_metrics_core_searcher_documents{item=\"numDocs\"})", "legendFormat": "Docs" }],
         "options": { "graphMode": "area", "colorMode": "value" }
       },
       {
@@ -80,7 +80,7 @@
             "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
           }
         },
-        "targets": [{ "expr": "count(solr_metrics_core_num_docs)", "legendFormat": "Cores" }],
+        "targets": [{ "expr": "count(solr_metrics_core_searcher_documents{item=\"numDocs\"})", "legendFormat": "Cores" }],
         "options": { "graphMode": "none", "colorMode": "value" }
       },
       {
@@ -99,7 +99,7 @@
             ]}
           }
         },
-        "targets": [{ "expr": "sum(solr_metrics_core_deleted_docs)", "legendFormat": "Deleted" }],
+        "targets": [{ "expr": "sum(solr_metrics_core_searcher_documents{item=\"deletedDocs\"})", "legendFormat": "Deleted" }],
         "options": { "graphMode": "area", "colorMode": "value" }
       },
       {
@@ -164,7 +164,7 @@
           }
         },
         "targets": [
-          { "expr": "solr_metrics_core_average_request_time", "legendFormat": "{% raw %}{{ core }}{% endraw %}" }
+          { "expr": "solr_metrics_core_query_median_ms", "legendFormat": "{% raw %}{{ core }}{% endraw %}" }
         ]
       },
       {
@@ -190,7 +190,7 @@
           }
         },
         "targets": [
-          { "expr": "solr_metrics_core_num_docs", "legendFormat": "{% raw %}{{ core }}{% endraw %}" }
+          { "expr": "solr_metrics_core_searcher_documents{item=\"numDocs\"}", "legendFormat": "{% raw %}{{ collection }} {{ shard }}{% endraw %}" }
         ],
         "options": { "displayMode": "gradient", "orientation": "horizontal" }
       },
@@ -239,7 +239,7 @@
           }
         },
         "targets": [
-          { "expr": "solr_metrics_core_query_result_cache_ratio", "legendFormat": "{% raw %}{{ core }}{% endraw %}" }
+          { "expr": "solr_metrics_core_searcher_cache_ratio{type=\"queryResultCache\"}", "legendFormat": "{% raw %}{{ collection }}{% endraw %}" }
         ]
       },
       {
@@ -260,7 +260,7 @@
           }
         },
         "targets": [
-          { "expr": "solr_metrics_core_document_cache_ratio", "legendFormat": "{% raw %}{{ core }}{% endraw %}" }
+          { "expr": "solr_metrics_core_searcher_cache_ratio{type=\"documentCache\"}", "legendFormat": "{% raw %}{{ collection }}{% endraw %}" }
         ]
       },
       {
@@ -281,7 +281,7 @@
           }
         },
         "targets": [
-          { "expr": "solr_metrics_core_filter_cache_ratio", "legendFormat": "{% raw %}{{ core }}{% endraw %}" }
+          { "expr": "solr_metrics_core_searcher_cache_ratio{type=\"filterCache\"}", "legendFormat": "{% raw %}{{ collection }}{% endraw %}" }
         ]
       },
       {
@@ -304,8 +304,8 @@
           }
         },
         "targets": [
-          { "expr": "solr_metrics_jvm_memory_heap_bytes", "legendFormat": "{% raw %}{{ base_url }}{% endraw %} Used" },
-          { "expr": "solr_metrics_jvm_memory_heap_max_bytes", "legendFormat": "{% raw %}{{ base_url }}{% endraw %} Max" }
+          { "expr": "solr_metrics_jvm_memory_heap_bytes{item=\"used\"}", "legendFormat": "{% raw %}{{ base_url }}{% endraw %} Used" },
+          { "expr": "solr_metrics_jvm_memory_heap_bytes{item=\"max\"}", "legendFormat": "{% raw %}{{ base_url }}{% endraw %} Max" }
         ]
       },
       {
