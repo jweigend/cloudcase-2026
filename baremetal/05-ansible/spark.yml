@@ -10,7 +10,7 @@
   vars:
     spark_home: /opt/spark
     spark_user: cloudadmin
-    spark_master_host: node1.cloud.local
+    spark_master_host: node0.cloud.local
     spark_master_port: 7077
     spark_worker_memory: 24g
     spark_worker_cores: 6
@@ -187,7 +187,7 @@
   vars:
     spark_home: /opt/spark
     spark_user: cloudadmin
-    spark_master_host: node1.cloud.local
+    spark_master_host: node0.cloud.local
     
   tasks:
     - name: Create Spark Worker systemd service

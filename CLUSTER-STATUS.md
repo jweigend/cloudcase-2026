@@ -28,8 +28,8 @@
 |------------|-------|--------|
 | **ZooKeeper 3.9.4** | node1, node2, node3 | ✅ 3/3 Nodes aktiv |
 | **Solr Cloud 9.10.1** | node1, node2, node3, node4 | ✅ 4/4 Nodes aktiv |
-| **Spark Master 3.5.8** | node1 | ✅ Läuft auf Port 7077 |
-| **Spark Workers 3.5.8** | node2, node3, node4 | ✅ 3 Workers aktiv |
+| **Spark Master 3.5.8** | node0 | ✅ Läuft auf Port 7077 |
+| **Spark Workers 3.5.8** | node1, node2, node3, node4 | ✅ 4 Workers aktiv |
 | **Prometheus 2.54.1** | node0 | ✅ Läuft auf Port 9090 |
 | **Grafana 11.4.0** | node0 | ✅ Läuft auf Port 3000 |
 | **Node Exporter 1.8.2** | alle Nodes | ✅ 5/5 Nodes aktiv |
@@ -40,15 +40,15 @@
 |---------|-----|--------------|
 | **Grafana** | http://192.168.1.100:3000 | admin / admin |
 | **Prometheus** | http://192.168.1.100:9090 | - |
-| **Spark Master** | http://192.168.1.101:8081 | - |
+| **Spark Master** | http://192.168.1.100:8081 | - |
 | **Solr Admin** | http://192.168.1.101:8983/solr | - |
 
 ## Node Details
 
 | Node | IP | Hostname | Rolle |
 |------|-----|----------|-------|
-| node0 | 192.168.1.100 | node0.cloud.local | Monitoring, DNS |
-| node1 | 192.168.1.101 | node1.cloud.local | ZooKeeper, Solr, Spark Master |
+| node0 | 192.168.1.100 | node0.cloud.local | Monitoring, DNS, Spark Master |
+| node1 | 192.168.1.101 | node1.cloud.local | ZooKeeper, Solr, Spark Worker |
 | node2 | 192.168.1.102 | node2.cloud.local | ZooKeeper, Solr, Spark Worker |
 | node3 | 192.168.1.103 | node3.cloud.local | ZooKeeper, Solr, Spark Worker |
 | node4 | 192.168.1.104 | node4.cloud.local | Solr, Spark Worker |
@@ -62,8 +62,8 @@
 | ZooKeeper Peer | 2888 | node1, node2, node3 |
 | ZooKeeper Election | 3888 | node1, node2, node3 |
 | Grafana | 3000 | node0 |
-| Spark Master | 7077 | node1 |
-| Spark Master UI | 8081 | node1 |
+| Spark Master | 7077 | node0 |
+| Spark Master UI | 8081 | node0 |
 | Spark Worker UI | 8081 | node2, node3, node4 |
 | Solr | 8983 | node1, node2, node3, node4 |
 | Prometheus | 9090 | node0 |
@@ -83,7 +83,7 @@ node1.cloud.local:2181,node2.cloud.local:2181,node3.cloud.local:2181/solr
 
 ### Spark Master
 ```
-spark://node1.cloud.local:7077
+spark://node0.cloud.local:7077
 ```
 
 ## Hardware

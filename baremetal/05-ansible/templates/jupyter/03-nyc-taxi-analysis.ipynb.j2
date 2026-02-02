@@ -29,7 +29,7 @@
         "**Datenquelle:** [NYC Taxi & Limousine Commission](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)\n",
         "\n",
         "**Cluster:**\n",
-        "- Spark Master: `spark://node1.cloud.local:7077`\n",
+        "- Spark Master: `spark://node0.cloud.local:7077`\n",
         "- Workers: node1, node2, node3, node4\n",
         "- Daten: Parquet-Dateien auf jedem Node unter `/data/spark/datasets/nyc-taxi/`"
       ]
@@ -148,7 +148,7 @@
         "# Gesamt: 12 Executors, 72GB RAM, 24 Cores\n",
         "spark = SparkSession.builder \\\n",
         "    .appName('NYC Taxi Analysis - Distributed') \\\n",
-        "    .master('spark://node1.cloud.local:7077') \\\n",
+        "    .master('spark://node0.cloud.local:7077') \\\n",
         "    .config('spark.executor.cores', '2') \\\n",
         "    .config('spark.executor.memory', '6g') \\\n",
         "    .config('spark.executor.memoryOverhead', '1g') \\\n",
@@ -587,7 +587,7 @@
         "┌────────────────────────────────────────────────────────────┐\n",
         "│  CLUSTER KONFIGURATION                                     │\n",
         "├────────────────────────────────────────────────────────────┤\n",
-        "│  Spark Master:         node1.cloud.local:7077              │\n",
+        "│  Spark Master:         node0.cloud.local:7077              │\n",
         "│  Worker Nodes:         node1, node2, node3, node4          │\n",
         "│  Executors:            {sc.defaultParallelism:>3}                                   │\n",
         "│  Partitionen:          {df.rdd.getNumPartitions():>3}                                   │\n",

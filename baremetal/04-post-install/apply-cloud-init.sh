@@ -99,13 +99,13 @@ if [[ "$NODE_NAME" =~ ^node[1-4]$ ]]; then
     CLOUD_INIT_FILES+=("$BASE_DIR/06-install-solr/cloud-init.yaml")
 fi
 
-# Spark Master (node1)
-if [[ "$NODE_NAME" == "node1" ]]; then
+# Spark Master (node0)
+if [[ "$NODE_NAME" == "node0" ]]; then
     CLOUD_INIT_FILES+=("$BASE_DIR/07-install-spark/cloud-init-master.yaml")
 fi
 
-# Spark Worker (node2-4)
-if [[ "$NODE_NAME" =~ ^node[2-4]$ ]]; then
+# Spark Worker (node1-4)
+if [[ "$NODE_NAME" =~ ^node[1-4]$ ]]; then
     CLOUD_INIT_FILES+=("$BASE_DIR/07-install-spark/cloud-init-worker.yaml")
 fi
 

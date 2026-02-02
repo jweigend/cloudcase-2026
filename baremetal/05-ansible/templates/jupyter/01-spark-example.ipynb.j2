@@ -9,8 +9,8 @@
         "Dieses Notebook zeigt, wie man sich mit dem Spark-Cluster verbindet.\n",
         "\n",
         "**Cluster-Info:**\n",
-        "- Spark Master: `spark://node1.cloud.local:7077`\n",
-        "- Spark Master UI: http://node1.cloud.local:8082\n",
+        "- Spark Master: `spark://node0.cloud.local:7077`\n",
+        "- Spark Master UI: http://node0.cloud.local:8081\n",
         "- Spark Version: {{ spark_version }}"
       ]
     },
@@ -25,7 +25,7 @@
         "# Verbindung zum Spark Master\n",
         "spark = SparkSession.builder \\\n",
         "    .appName('JupyterDemo') \\\n",
-        "    .master('spark://node1.cloud.local:7077') \\\n",
+        "    .master('spark://node0.cloud.local:7077') \\\n",
         "    .getOrCreate()\n",
         "\n",
         "print(f'Spark Version: {spark.version}')\n",

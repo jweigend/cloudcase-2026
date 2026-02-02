@@ -172,7 +172,7 @@
             - job_name: 'spark-master'
               metrics_path: '/metrics/master/prometheus/'
               static_configs:
-                - targets: ['node1.{{ domain }}:8081']
+                - targets: ['node0.{{ domain }}:8081']
                   labels:
                     role: master
             

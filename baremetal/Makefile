@@ -3,7 +3,7 @@
 # Verwendung: make [target]
 #
 
-.PHONY: help iso configs usb ansible zookeeper solr spark monitoring jupyter smoke-tests collection clean shutdown
+.PHONY: help iso configs usb ansible zookeeper solr spark monitoring jupyter smoke-tests collection clean shutdown reboot
 
 # Ansible Pfad
 ANSIBLE := ~/.local/share/pipx/venvs/ansible/bin/ansible-playbook
@@ -36,6 +36,7 @@ help:
 	@echo "║  CLUSTER STEUERUNG:                                                      ║"
 	@echo "║  ─────────────────────────────────────────────────────────────────────── ║"
 	@echo "║  make shutdown         Alle Nodes herunterfahren                         ║"
+	@echo "║  make reboot           Alle Nodes neu starten                            ║"
 	@echo "║                                                                          ║"
 	@echo "║  STATUS & TESTS:                                                         ║"
 	@echo "║  ─────────────────────────────────────────────────────────────────────── ║"
@@ -46,7 +47,7 @@ help:
 	@echo "║  ─────────────────────────────────────────────────────────────────────── ║"
 	@echo "║  Grafana:      http://node0:3000  (admin/admin)                          ║"
 	@echo "║  Prometheus:   http://node0:9090                                         ║"
-	@echo "║  Spark Master: http://node1:8081                                         ║"
+	@echo "║  Spark Master: http://node0:8081                                         ║"
 	@echo "║  Solr Admin:   http://node1:8983/solr                                    ║"
 	@echo "║  JupyterLab:   http://node0:8888                                         ║"
 	@echo "║                                                                          ║"
@@ -134,7 +135,7 @@ status:
 	done
 	@echo ""
 	@echo "--- Spark Workers ---"
-	@workers=$$(curl -s --max-time 2 http://node1:8081/ 2>/dev/null | grep -c "ALIVE" || echo "0"); \
+	@workers=$$(curl -s --max-time 2 http://node0:8081/ 2>/dev/null | grep -c "ALIVE" || echo "0"); \
 	echo "Aktive Workers: $$workers"
 	@echo ""
 	@echo "--- Prometheus ---"
@@ -163,6 +164,14 @@ shutdown:
 		ssh -o ConnectTimeout=2 cloudadmin@$$node "sudo shutdown -h now" 2>/dev/null || true; \
 	done
 	@echo "=== Shutdown-Befehle gesendet ==="
+
+reboot:
+	@echo "=== Alle Nodes neu starten ==="
+	@for node in node4 node3 node2 node1 node0; do \
+		echo "Starte $$node neu..."; \
+		ssh -o ConnectTimeout=2 cloudadmin@$$node "sudo reboot" 2>/dev/null || true; \
+	done
+	@echo "=== Reboot-Befehle gesendet ==="
 
 # ============================================
 # CLEANUP

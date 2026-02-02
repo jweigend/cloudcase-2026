@@ -172,6 +172,15 @@
         mode: '0644'
         force: no  # Don't overwrite if user modified
 
+    - name: Deploy Lambda Architecture notebook
+      ansible.builtin.template:
+        src: templates/jupyter/04-lambda-architecture.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/04-lambda-architecture.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: no  # Don't overwrite if user modified
+
     - name: Create datasets directory
       ansible.builtin.file:
         path: "{{ jupyter_data }}/datasets"
@@ -198,7 +207,7 @@
           URL: http://node0.cloud.local:{{ jupyter_port }}
           Notebooks: {{ jupyter_data }}/notebooks
           
-          Spark Master: spark://node1.cloud.local:7077
+          Spark Master: spark://node0.cloud.local:7077
           ============================================
 
   handlers:

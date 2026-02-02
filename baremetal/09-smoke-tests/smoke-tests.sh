@@ -55,9 +55,9 @@ done
 echo ""
 
 echo "Spark:"
-check "node1 Master" "curl -s --max-time 5 http://${NODES[node1]}:8081 | grep -q Spark"
-for node in node2 node3 node4; do
-    check "$node Worker" "curl -s --max-time 5 http://${NODES[$node]}:8081 | grep -q Spark"
+check "node0 Master" "curl -s --max-time 5 http://${NODES[node0]}:8081 | grep -q Spark"
+for node in node1 node2 node3 node4; do
+    check "$node Worker" "curl -s --max-time 5 http://${NODES[$node]}:8082 | grep -q Spark"
 done
 echo ""
 

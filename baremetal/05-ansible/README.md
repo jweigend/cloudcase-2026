@@ -84,9 +84,9 @@ ansible all -i inventory.yml -m ping
 - **ZK-Verbindung:** `node1:2181,node2:2181,node3:2181/solr`
 
 ### Spark (3.5.8)
-- **Master:** node1:7077
+- **Master:** node0:7077
 - **Workers:** node1, node2, node3, node4
-- **Web UI Master:** `http://node1:8081`
+- **Web UI Master:** `http://node0:8081`
 - **Web UI Workers:** `http://node1:8082`, `http://node2:8082`, `http://node3:8082`, `http://node4:8082`
 
 ### Monitoring
