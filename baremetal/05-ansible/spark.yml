@@ -84,6 +84,19 @@
           export SPARK_WORKER_MEMORY={{ spark_worker_memory }}
           export SPARK_WORKER_CORES={{ spark_worker_cores }}
 
+    - name: Configure metrics.properties for Prometheus
+      copy:
+        dest: "{{ spark_home }}/conf/metrics.properties"
+        owner: "{{ spark_user }}"
+        group: "{{ spark_user }}"
+        mode: '0644'
+        content: |
+          # Prometheus Metrics Sink
+          *.sink.prometheusServlet.class=org.apache.spark.metrics.sink.PrometheusServlet
+          *.sink.prometheusServlet.path=/metrics/prometheus
+          master.sink.prometheusServlet.path=/metrics/master/prometheus
+          applications.sink.prometheusServlet.path=/metrics/applications/prometheus
+
     - name: Configure spark-defaults.conf
       copy:
         dest: "{{ spark_home }}/conf/spark-defaults.conf"
