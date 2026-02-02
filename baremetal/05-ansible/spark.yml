@@ -16,6 +16,24 @@
     spark_worker_cores: 6
     
   tasks:
+    - name: Install Python packages for PySpark (Data Locality)
+      apt:
+        name:
+          - python3-pip
+          - python3-pandas
+        state: present
+      become: yes
+
+    - name: Install PyArrow for Parquet support
+      pip:
+        name:
+          - pyarrow
+          - requests
+        state: present
+        executable: pip3
+        extra_args: --break-system-packages
+      become: yes
+
     - name: Create directories
       file:
         path: "{{ item }}"
