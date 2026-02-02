@@ -136,3 +136,9 @@ sudo apt-get install -y xorriso wget curl netcat-openbsd whois
 ---
 
 *Weiter mit [SOLR-SPARK-SETUP.md](SOLR-SPARK-SETUP.md)*
+
+---
+
+## Lizenz
+
+MIT License - siehe [LICENSE](LICENSE) | © 2026 Johannes Weigend, Weigend AM

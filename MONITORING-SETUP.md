@@ -106,3 +106,9 @@ cd baremetal/09-smoke-tests
 ---
 
 *Zurück zur [Hauptdokumentation](README-SETUP.md)*
+
+---
+
+## Lizenz
+
+MIT License - siehe [LICENSE](LICENSE) | © 2026 Johannes Weigend, Weigend AM

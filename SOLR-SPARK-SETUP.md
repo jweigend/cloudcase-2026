@@ -162,3 +162,9 @@ spark.sql.shuffle.partitions     48
 ---
 
 *Weiter mit [MONITORING-SETUP.md](MONITORING-SETUP.md)*
+
+---
+
+## Lizenz
+
+MIT License - siehe [LICENSE](LICENSE) | © 2026 Johannes Weigend, Weigend AM

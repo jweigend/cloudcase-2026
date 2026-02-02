@@ -311,4 +311,6 @@ Cloud-Init ist die richtige Wahl, weil es:
 
 ## Lizenz
 
-Internes Projekt - nicht zur Veröffentlichung bestimmt.
+Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe [LICENSE](LICENSE) für Details.
+
+© 2026 Johannes Weigend, Weigend AM

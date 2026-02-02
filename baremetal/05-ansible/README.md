@@ -128,3 +128,9 @@ ansible-playbook -i inventory.yml site.yml -vvv
 ```bash
 ansible-playbook -i inventory.yml zookeeper.yml --limit node1
 ```
+
+---
+
+## Lizenz
+
+MIT License - siehe [LICENSE](../../LICENSE) | © 2026 Johannes Weigend, Weigend AM

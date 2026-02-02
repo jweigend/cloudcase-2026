@@ -292,3 +292,9 @@ baremetal/
         ├── base.yaml
         └── dns-server.yaml
 ```
+
+---
+
+## Lizenz
+
+MIT License - siehe [LICENSE](../LICENSE) | © 2026 Johannes Weigend, Weigend AM
