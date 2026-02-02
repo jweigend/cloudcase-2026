@@ -78,7 +78,7 @@
           autopurge.snapRetainCount=3
           autopurge.purgeInterval=24
           
-          4lw.commands.whitelist=ruok,stat,mntr,srvr
+          4lw.commands.whitelist=mntr,conf,ruok,stat,srvr
           
           # Prometheus Metrics Provider (Port 7070)
           metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider
