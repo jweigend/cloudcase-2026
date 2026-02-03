@@ -433,37 +433,84 @@ Ich will fair sein. Diese Architektur ist nicht für alles optimal. Hier der ehr
 
 ## Technische Umsetzung: So baust du es
 
-### Der Import: Parallel mit Spark
+### Der Import: Parallel mit Data Locality
 
-Der Trick ist, **nicht durch den Driver zu gehen**. Jeder Spark Executor schreibt direkt nach Solr:
+Der Trick ist, **nicht durch den Driver zu gehen** und **Data Locality zu nutzen**. Jeder Spark Executor schreibt an seinen **lokalen Solr** (127.0.0.1) – kein Netzwerk-Overhead!
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Spark liest Parquet optimiert (alle Row Groups parallel)       │
+│  → 4 Executors × 4 Cores = 16 parallele Tasks                  │
+│  → Jeder Executor schreibt an LOKALEN Solr (127.0.0.1:8983)    │
+│                                                                 │
+│  Data Locality: Solr-Write ist lokal = kein Netzwerk-Overhead! │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ```python
-def import_to_solr_parallel(spark, parquet_path, collection):
+def import_to_solr_parallel(spark, parquet_path, collection, batch_size=2000):
+    """
+    Hochparalleler Import: Spark liest Parquet optimal, 
+    Executors schreiben an LOKALEN Solr.
+    
+    Datenfluss:
+      1. Spark liest Parquet mit optimiertem Reader
+      2. Repartition auf 16 Partitionen = 4 Executors × 4 Tasks
+      3. Jeder Executor sendet an 127.0.0.1 → Data Locality!
+    """
     # Parquet laden (verteilt auf Executors)
     df = spark.read.parquet(parquet_path)
     
-    # Konfiguration zu allen Executors broadcasten
-    solr_nodes = spark.sparkContext.broadcast(['node1', 'node2', 'node3', 'node4'])
+    # Optimale Parallelität: 16 Partitionen für 4 Executors × 4 Cores
+    df = df.repartition(16)
     
-    def send_partition(partition_index, iterator):
+    # Konfiguration broadcasten
+    solr_port = spark.sparkContext.broadcast(8983)
+    collection_bc = spark.sparkContext.broadcast(collection)
+    
+    def send_partition_to_local_solr(partition_index, iterator):
+        """Sendet Partition an LOKALEN Solr (127.0.0.1) - Data Locality!"""
         import requests
-        # Round-Robin über Solr Nodes
-        node = solr_nodes.value[partition_index % len(solr_nodes.value)]
-        url = f"http://{node}:8983/solr/{collection}/update"
+        import socket
+        
+        port = solr_port.value
+        coll = collection_bc.value
+        hostname = socket.gethostname()
+        
+        # LOKALER Solr - kein Netzwerk!
+        url = f"http://127.0.0.1:{port}/solr/{coll}/update"
         
         batch = []
+        count = 0
+        
         for row in iterator:
-            batch.append(row.asDict())
-            if len(batch) >= 2000:
-                requests.post(url, json=batch)
+            doc = row.asDict()
+            batch.append(doc)
+            
+            if len(batch) >= batch_size:
+                requests.post(url, json=batch, timeout=60)
+                count += len(batch)
                 batch = []
         
         if batch:
-            requests.post(url, json=batch)
+            requests.post(url, json=batch, timeout=60)
+            count += len(batch)
+        
+        yield (partition_index, hostname, count)
     
-    # Parallel auf allen Executors
-    df.rdd.mapPartitionsWithIndex(send_partition).collect()
+    # Parallel auf allen Executors - jeder schreibt lokal!
+    results = df.rdd.mapPartitionsWithIndex(send_partition_to_local_solr).collect()
+    
+    # Commit
+    requests.post(f"http://solr:8983/solr/{collection}/update?commit=true", json=[])
+    
+    return sum(r[2] for r in results)
 ```
+
+**Warum Data Locality?**
+- Der Shuffle (Repartition) ist unvermeidbar bei Parquet-Import
+- Aber der Solr-Write ist **lokal** = kein doppelter Netzwerk-Hop
+- Jeder Node hat Solr + Spark Executor = 127.0.0.1 ist immer da
 
 **Throughput:** 50.000-100.000 Dokumente pro Sekunde, linear skalierend mit Cluster-Größe.
 

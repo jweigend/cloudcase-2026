@@ -111,4 +111,4 @@ cd baremetal/09-smoke-tests
 
 ## Lizenz
 
-MIT License - siehe [LICENSE](LICENSE) | © 2026 Johannes Weigend, Weigend AM
+MIT License - siehe [LICENSE](../LICENSE) | © 2026 Johannes Weigend, Weigend AM

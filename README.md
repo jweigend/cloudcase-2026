@@ -165,9 +165,10 @@ cd baremetal
 
 | Dokument | Inhalt |
 |----------|--------|
-| [BAREMETAL-SETUP.md](BAREMETAL-SETUP.md) | Ubuntu Installation, Cloud-Init |
-| [SOLR-SPARK-SETUP.md](SOLR-SPARK-SETUP.md) | ZooKeeper, Solr, Spark Konfiguration |
-| [MONITORING-SETUP.md](MONITORING-SETUP.md) | Prometheus, Grafana, Exporter |
+| [README-BAREMETAL-SETUP.md](docs/README-BAREMETAL-SETUP.md) | Ubuntu Installation, Cloud-Init |
+| [README-SOLR-SPARK-SETUP.md](docs/README-SOLR-SPARK-SETUP.md) | ZooKeeper, Solr, Spark Konfiguration |
+| [README-MONITORING-SETUP.md](docs/README-MONITORING-SETUP.md) | Prometheus, Grafana, Exporter |
+| [README-CLUSTER-STATUS.md](docs/README-CLUSTER-STATUS.md) | Cluster-Status & Diagnose |
 | [baremetal/README.md](baremetal/README.md) | Schritt-für-Schritt Anleitung |
 
 ---
@@ -177,9 +178,16 @@ cd baremetal
 ```
 Cloudkoffer-2026/
 ├── README.md                    ← Du bist hier
-├── BAREMETAL-SETUP.md           # OS-Installation Doku
-├── SOLR-SPARK-SETUP.md          # Big Data Stack Doku
-├── MONITORING-SETUP.md          # Monitoring Doku
+├── LICENSE                      # MIT License
+│
+├── docs/                        # Dokumentation
+│   ├── README-BAREMETAL-SETUP.md    # OS-Installation Doku
+│   ├── README-SOLR-SPARK-SETUP.md   # Big Data Stack Doku
+│   ├── README-MONITORING-SETUP.md   # Monitoring Doku
+│   ├── README-CLUSTER-STATUS.md     # Cluster-Status
+│   ├── README-SETUP.md              # Setup-Anleitung
+│   ├── README-ISO.md                # ISO-Erstellung
+│   └── ARTICLE-drill-down-architecture.md  # Architektur-Artikel
 │
 └── baremetal/                   # Installations-Scripts
     ├── 00-edgerouter-config/    # Router Backup & Restore

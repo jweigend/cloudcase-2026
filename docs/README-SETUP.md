@@ -113,4 +113,4 @@ curl http://node0:3000/api/health
 
 ## Lizenz
 
-MIT License - siehe [LICENSE](LICENSE) | © 2026 Johannes Weigend, Weigend AM
+MIT License - siehe [LICENSE](../LICENSE) | © 2026 Johannes Weigend, Weigend AM

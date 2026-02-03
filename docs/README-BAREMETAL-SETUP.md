@@ -141,4 +141,4 @@ sudo apt-get install -y xorriso wget curl netcat-openbsd whois
 
 ## Lizenz
 
-MIT License - siehe [LICENSE](LICENSE) | © 2026 Johannes Weigend, Weigend AM
+MIT License - siehe [LICENSE](../LICENSE) | © 2026 Johannes Weigend, Weigend AM

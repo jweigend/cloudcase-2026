@@ -167,4 +167,4 @@ spark.sql.shuffle.partitions     48
 
 ## Lizenz
 
-MIT License - siehe [LICENSE](LICENSE) | © 2026 Johannes Weigend, Weigend AM
+MIT License - siehe [LICENSE](../LICENSE) | © 2026 Johannes Weigend, Weigend AM
