@@ -51,6 +51,23 @@ Interaktive Drill-Down Webapp zur Exploration von NYC Taxi-Daten mit Solr Facett
 | Suchindex | Apache Solr Cloud | 8983 |
 | Analytics | Apache Spark (Cluster) | 7077 |
 
+## Voraussetzungen
+
+**Daten müssen importiert sein!** 
+
+Die NYC Taxi-Daten werden über das Jupyter Notebook importiert:
+
+1. JupyterLab öffnen: http://node0.cloud.local:8888
+2. Notebook `05-drilldown-architecture.ipynb` öffnen
+3. Teil 1 (Spark Session) + Teil 2 (Datenimport) ausführen
+4. Warten bis ~6M Dokumente in Solr indexiert sind
+
+Alternativ via Ansible:
+```bash
+cd baremetal/05-ansible
+ansible-playbook -i inventory.yml jupyter.yml --tags notebooks -e "force=true"
+```
+
 ## Lokale Entwicklung
 
 ```bash
