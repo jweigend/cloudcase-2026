@@ -6,7 +6,7 @@
 
 ---
 
-![NYC Taxi Explorer - 6 Millionen Fahrten](screenshots/nj-taxi-6M.png)
+![NYC Taxi Explorer - 6 Millionen Fahrten](docs/screenshots/nj-taxi-6M.png)
 
 ## Was ist das?
 
@@ -39,7 +39,7 @@ Jeder Klick verfeinert die Auswahl – von 6 Millionen auf die Fahrten, die dich
 
 ## Beispiel: Die Montags-Analyse
 
-![Montags-Filter aktiv](screenshots/nj-taxi-monday.png)
+![Montags-Filter aktiv](docs/screenshots/nj-taxi-monday.png)
 
 **Frage:** Wie sieht der typische Montag in NYC aus?
 
@@ -52,7 +52,7 @@ Jeder Klick verfeinert die Auswahl – von 6 Millionen auf die Fahrten, die dich
 
 ## Beispiel: Wochenend-Party-Routen
 
-![Weekend Party Filter](screenshots/nj-taxi-weekend-party.png)
+![Weekend Party Filter](docs/screenshots/nj-taxi-weekend-party.png)
 
 **Filter:** Freitag + Samstag, 22-02 Uhr
 
@@ -63,7 +63,7 @@ Die Nachtclub-Bezirke übernehmen, Flughäfen verschwinden aus den Top-Routen.
 
 ## Beispiel: Die Premium-Fahrten
 
-![Fahrten über $20](screenshots/nj-taxi-monday-20$.png)
+![Fahrten über $20](docs/screenshots/nj-taxi-monday-20$.png)
 
 **Filter:** Montag + Fahrpreis $20-30
 
@@ -127,9 +127,9 @@ Du filterst dich durch bis zur interessanten Teilmenge – und dann rechnet Spar
 
 Die komplette Architektur ist dokumentiert:
 
-- [Drill-Down Architecture](ARTICLE-drill-down-architecture.md) – Der tiefe Einblick
-- [Webapp Technical README](../webapp/README.md) – Frontend + Backend Details
-- [Cluster Setup](README-BAREMETAL-SETUP.md) – Die Hardware dahinter
+- [Drill-Down Architecture](docs/ARTICLE-drill-down-architecture.md) – Der tiefe Einblick
+- [Webapp Technical README](webapp/README.md) – Frontend + Backend Details
+- [Cluster Setup](docs/README-BAREMETAL-SETUP.md) – Die Hardware dahinter
 
 **Fun Fact:** Diese Architektur haben wir 2016 zum ersten Mal gebaut. 
 10 Jahre später funktioniert sie immer noch besser als die meisten "modernen" Alternativen.
