@@ -2,7 +2,7 @@
 
 Ein portabler Big Data Cluster auf 5 Intel NUCs für Demos, Workshops und Entwicklung.
 
-![Cloudkoffer NUC Cluster](docs/images/Cluster-Work-In-Progress.jpeg)
+<img src="docs/images/Cluster-Work-In-Progress.jpeg" alt="Cloudkoffer NUC Cluster" width="400">
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
