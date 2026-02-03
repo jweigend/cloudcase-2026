@@ -42,6 +42,7 @@
         <!-- Top Routes Panel -->
         <TopRoutesPanel 
           :activeFilters="activeFilters"
+          @select-route="addRouteFilter"
         />
       </section>
     </main>
@@ -151,6 +152,20 @@ function removeFilter(fq) {
   const index = activeFilters.value.indexOf(fq)
   if (index !== -1) {
     activeFilters.value.splice(index, 1)
+  }
+}
+
+// Routen-Filter aus Top Routes hinzufügen
+function addRouteFilter({ PULocationID, DOLocationID }) {
+  // Pickup Location Filter
+  const puFq = `PULocationID:${PULocationID}`
+  if (!activeFilters.value.includes(puFq)) {
+    activeFilters.value.push(puFq)
+  }
+  // Dropoff Location Filter
+  const doFq = `DOLocationID:${DOLocationID}`
+  if (!activeFilters.value.includes(doFq)) {
+    activeFilters.value.push(doFq)
   }
 }
 

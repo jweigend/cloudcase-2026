@@ -1,9 +1,9 @@
 <template>
-  <div class="border-b border-gray-200 pb-4">
+  <div class="border-b border-gray-200 pb-2">
     <!-- Klickbarer Header zum Auf-/Zuklappen -->
     <button 
       @click="toggleExpanded"
-      class="w-full flex items-center justify-between text-sm font-medium text-gray-500 mb-2 hover:text-gray-700 transition-colors"
+      class="w-full flex items-center justify-between text-sm font-medium text-gray-500 mb-1 hover:text-gray-700 transition-colors"
     >
       <span class="flex items-center gap-1">
         {{ title }}
@@ -31,22 +31,22 @@
       leave-from-class="opacity-100 max-h-96"
       leave-to-class="opacity-0 max-h-0"
     >
-      <ul v-show="expanded" class="space-y-1 overflow-hidden">
+      <ul v-show="expanded" class="space-y-0.5 overflow-hidden">
         <li 
-          v-for="item in items" 
+          v-for="item in sortedItems" 
           :key="item.value"
           @click="$emit('toggle', item.value)"
-          class="flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors"
+          class="flex items-center justify-between px-2 py-1 rounded cursor-pointer transition-colors text-sm"
           :class="isActive(item.value) 
             ? 'bg-blue-100 text-blue-800 font-medium' 
             : 'hover:bg-gray-100 text-gray-700'"
         >
-          <span class="flex items-center gap-2">
+          <span class="flex items-center gap-1.5">
             <span 
-              class="w-4 h-4 rounded border flex items-center justify-center"
+              class="w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0"
               :class="isActive(item.value) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'"
             >
-              <svg v-if="isActive(item.value)" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <svg v-if="isActive(item.value)" class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
               </svg>
             </span>
@@ -70,10 +70,15 @@ const props = defineProps({
   items: { type: Array, default: () => [] },
   activeFilters: { type: Array, default: () => [] },
   formatter: { type: Function, default: null },
-  expanded: { type: Boolean, default: true }
+  expanded: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['toggle', 'update:expanded'])
+
+// Items nach Anzahl sortiert (absteigend)
+const sortedItems = computed(() => {
+  return [...props.items].sort((a, b) => b.count - a.count)
+})
 
 // Anzahl aktiver Filter in dieser Gruppe
 const activeCount = computed(() => {

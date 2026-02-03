@@ -52,7 +52,8 @@
       <div 
         v-for="(route, index) in routes" 
         :key="`${route.PULocationID}-${route.DOLocationID}`"
-        class="p-3 rounded-lg border-l-4 transition-all hover:shadow-md"
+        @click="selectRoute(route)"
+        class="p-3 rounded-lg border-l-4 transition-all hover:shadow-md cursor-pointer"
         :class="getRankClass(index)"
       >
         <div class="flex items-start justify-between">
@@ -130,6 +131,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { countTrips, filtersToObject, checkBackendHealth } from '../api/backend.js'
+import { getZoneName } from '../data/taxiZones.js'
 
 const props = defineProps({
   activeFilters: {
@@ -137,6 +139,8 @@ const props = defineProps({
     default: () => []
   }
 })
+
+const emit = defineEmits(['select-route'])
 
 // State
 const routes = ref([])
@@ -146,7 +150,6 @@ const backendOnline = ref(false)
 const hasCalculated = ref(false)
 const lastQuery = ref('')
 const lastSparkTime = ref(0)
-const zoneNames = ref({})
 
 // AbortController für Request-Abbruch
 let currentAbortController = null
@@ -156,6 +159,14 @@ let debounceTimer = null
 const canAnalyze = computed(() => {
   return backendOnline.value && tripCount.value > 0 && tripCount.value <= 1000000
 })
+
+// Route auswählen und als Filter emittieren
+function selectRoute(route) {
+  emit('select-route', {
+    PULocationID: route.PULocationID,
+    DOLocationID: route.DOLocationID
+  })
+}
 
 // Methoden
 async function checkBackend() {
@@ -268,20 +279,7 @@ function formatNumber(num) {
   return num.toLocaleString('de-DE')
 }
 
-function getZoneName(id) {
-  return zoneNames.value[id] || `Zone ${id}`
-}
-
-async function loadZoneNames() {
-  try {
-    const response = await fetch('/api/zone-names')
-    if (response.ok) {
-      zoneNames.value = await response.json()
-    }
-  } catch (error) {
-    console.error('Failed to load zone names:', error)
-  }
-}
+// getZoneName wird jetzt aus taxiZones.js importiert
 
 // Filter-Änderungen beobachten -> automatisch berechnen
 watch(() => props.activeFilters, () => {
@@ -302,7 +300,6 @@ onUnmounted(() => {
 onMounted(async () => {
   await checkBackend()
   if (backendOnline.value) {
-    await loadZoneNames()
     await updateTripCount()
     // Initial berechnen wenn möglich
     if (canAnalyze.value) {

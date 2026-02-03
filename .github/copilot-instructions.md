@@ -119,5 +119,6 @@ docs/
 ### Frontend ändern
 
 1. In `webapp/src/` entwickeln
-2. Build: `cd webapp && npm run build`
-3. Deployen: `ansible-playbook site.yml --tags webapp-frontend -i inventory.yml`
+2. Deployen: `ansible-playbook -i inventory.yml webapp-frontend.yml`
+   - Das Frontend hat ein **separates Playbook** (nicht über site.yml Tags!)
+   - Build erfolgt automatisch auf node0
