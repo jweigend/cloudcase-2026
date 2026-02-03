@@ -44,9 +44,12 @@ def get_spark():
     _spark = SparkSession.builder \
         .appName("TopRoutes-API") \
         .master("spark://node0.cloud.local:7077") \
-        .config("spark.driver.memory", "2g") \
-        .config("spark.executor.memory", "2g") \
-        .config("spark.sql.shuffle.partitions", "16") \
+        .config("spark.executor.memory", "16g") \
+        .config("spark.executor.cores", "4") \
+        .config("spark.cores.max", "16") \
+        .config("spark.executor.instances", "4") \
+        .config("spark.driver.memory", "4g") \
+        .config("spark.sql.shuffle.partitions", "32") \
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .getOrCreate()
     logger.info("Spark Session bereit (Cluster-Modus)")
