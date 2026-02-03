@@ -27,33 +27,52 @@ COLLECTION = "nyc-taxi-raw"
 
 # Spark Session (lazy init)
 _spark = None
+_spark_error = None  # Letzter Fehler für Diagnose
 
 def get_spark():
-    """Lazy Spark Session Initialisierung für Cluster-Modus"""
-    global _spark
+    """
+    Lazy Spark Session Initialisierung für Cluster-Modus.
     
+    Resilient: Versucht bei jedem Aufruf eine Verbindung herzustellen.
+    Gibt (spark, None) bei Erfolg zurück, (None, error_msg) bei Fehler.
+    """
+    global _spark, _spark_error
+    
+    # Prüfen ob bestehende Session noch aktiv ist
     if _spark is not None:
         try:
             _ = _spark.sparkContext.applicationId
-            return _spark
-        except Exception:
-            logger.warning("Spark Session war gestoppt, erstelle neue...")
+            _spark_error = None
+            return _spark, None
+        except Exception as e:
+            logger.warning(f"Spark Session war gestoppt: {e}")
             _spark = None
     
-    logger.info("Initialisiere Spark Session (Cluster-Modus)...")
-    _spark = SparkSession.builder \
-        .appName("TopRoutes-API") \
-        .master("spark://node0.cloud.local:7077") \
-        .config("spark.executor.memory", "16g") \
-        .config("spark.executor.cores", "4") \
-        .config("spark.cores.max", "16") \
-        .config("spark.executor.instances", "4") \
-        .config("spark.driver.memory", "4g") \
-        .config("spark.sql.shuffle.partitions", "32") \
-        .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
-        .getOrCreate()
-    logger.info("Spark Session bereit (Cluster-Modus)")
-    return _spark
+    # Neue Session erstellen
+    try:
+        logger.info("Initialisiere Spark Session (Cluster-Modus)...")
+        _spark = SparkSession.builder \
+            .appName("TopRoutes-API") \
+            .master("spark://node0.cloud.local:7077") \
+            .config("spark.executor.memory", "16g") \
+            .config("spark.executor.cores", "4") \
+            .config("spark.cores.max", "16") \
+            .config("spark.executor.instances", "4") \
+            .config("spark.driver.memory", "4g") \
+            .config("spark.sql.shuffle.partitions", "32") \
+            .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
+            .config("spark.network.timeout", "120s") \
+            .config("spark.executor.heartbeatInterval", "60s") \
+            .getOrCreate()
+        logger.info("Spark Session bereit (Cluster-Modus)")
+        _spark_error = None
+        return _spark, None
+    except Exception as e:
+        error_msg = f"Spark-Cluster nicht erreichbar: {str(e)}"
+        logger.error(error_msg)
+        _spark = None
+        _spark_error = error_msg
+        return None, error_msg
 
 
 def get_shard_info():
@@ -124,8 +143,21 @@ def build_solr_query(filters):
 
 @app.route('/api/health', methods=['GET'])
 def health():
-    """Health Check Endpoint"""
-    return jsonify({"status": "ok", "service": "top-routes-api"})
+    """Health Check Endpoint mit Spark-Status"""
+    spark, spark_error = get_spark()
+    spark_status = "connected" if spark else "unavailable"
+    
+    response = {
+        "status": "ok" if spark else "degraded",
+        "service": "top-routes-api",
+        "spark_status": spark_status,
+        "spark_master": "spark://node0.cloud.local:7077"
+    }
+    
+    if spark_error:
+        response["spark_error"] = spark_error
+    
+    return jsonify(response)
 
 
 @app.route('/api/count', methods=['POST'])
@@ -216,8 +248,16 @@ def top_routes():
         # Shard-Info holen
         shard_info = get_shard_info()
         
-        # Spark Session holen
-        spark = get_spark()
+        # Spark Session holen (resilient)
+        spark, spark_error = get_spark()
+        if spark is None:
+            return jsonify({
+                "routes": [],
+                "total_trips": 0,
+                "spark_time_ms": 0,
+                "error": spark_error,
+                "message": "Spark-Cluster nicht verfügbar. Bitte später erneut versuchen."
+            }), 503
         
         # Felder für Export
         fields = "PULocationID,DOLocationID,total_amount,trip_distance,tpep_pickup_datetime,tpep_dropoff_datetime"
