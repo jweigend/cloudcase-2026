@@ -16,7 +16,13 @@
           v-else-if="tripCount > 1000000" 
           class="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full"
         >
-          {{ formatNumber(tripCount) }} Fahrten - bitte Filter setzen
+          {{ formatNumber(tripCount) }} Fahrten - zu viele für Spark
+        </span>
+        <span 
+          v-else-if="loading" 
+          class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full animate-pulse"
+        >
+          Spark berechnet...
         </span>
         <span 
           v-else-if="tripCount > 0" 
@@ -27,33 +33,22 @@
       </div>
     </div>
 
-    <!-- Berechnen Button -->
-    <button
-      @click="calculateRoutes"
-      :disabled="!canAnalyze || loading"
-      class="w-full py-3 px-4 rounded-lg font-medium transition-all mb-4"
-      :class="buttonClass"
-    >
-      <span v-if="loading" class="flex items-center justify-center gap-2">
-        <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+    <!-- Lade-Overlay -->
+    <div v-if="loading" class="mb-4">
+      <div class="flex items-center justify-center gap-3 py-6 bg-blue-50 rounded-lg">
+        <svg class="animate-spin h-8 w-8 text-blue-600" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
-        Spark-Job läuft...
-      </span>
-      <span v-else-if="!backendOnline">
-        ⚠️ Backend nicht erreichbar
-      </span>
-      <span v-else-if="tripCount > 1000000">
-        🔍 Mehr Filter nötig (max 1M)
-      </span>
-      <span v-else>
-        🚀 Routen berechnen (Spark)
-      </span>
-    </button>
+        <div class="text-blue-700">
+          <div class="font-medium">Spark-Job läuft...</div>
+          <div class="text-xs text-blue-500">{{ formatNumber(tripCount) }} Fahrten werden analysiert</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Ergebnisse -->
-    <div v-if="routes.length > 0" class="space-y-3">
+    <div v-else-if="routes.length > 0" class="space-y-3">
       <div 
         v-for="(route, index) in routes" 
         :key="`${route.PULocationID}-${route.DOLocationID}`"
@@ -100,22 +95,31 @@
       </div>
     </div>
 
-    <!-- Leerer Zustand -->
-    <div v-else-if="!loading && hasCalculated" class="text-center py-8 text-gray-500">
+    <!-- Leerer Zustand - zu viele Daten -->
+    <div v-else-if="tripCount > 1000000" class="text-center py-8 text-yellow-600">
+      <div class="text-4xl mb-2">📊</div>
+      <div class="font-medium">Zu viele Daten für Spark-Analyse</div>
+      <div class="text-sm text-yellow-500 mt-1">Setze Filter um unter 1M Fahrten zu kommen</div>
+    </div>
+
+    <!-- Leerer Zustand - keine Routen gefunden -->
+    <div v-else-if="hasCalculated && routes.length === 0" class="text-center py-8 text-gray-500">
       <div class="text-4xl mb-2">🤔</div>
       <div>Keine Routen gefunden für diese Filter</div>
     </div>
 
-    <!-- Hinweis -->
-    <div v-else class="text-center py-6 text-gray-400 text-sm">
-      <p>Wähle Filter aus und klicke "Routen berechnen"</p>
-      <p class="mt-1">um die lukrativsten Strecken zu finden.</p>
+    <!-- Warte auf Filter -->
+    <div v-else-if="tripCount === 0" class="text-center py-6 text-gray-400 text-sm">
+      <p>Wähle Filter aus um die</p>
+      <p class="mt-1">lukrativsten Strecken zu finden.</p>
     </div>
 
     <!-- Berechnung Info -->
-    <div v-if="lastQuery" class="mt-4 pt-3 border-t border-gray-100">
+    <div v-if="lastQuery && !loading" class="mt-4 pt-3 border-t border-gray-100">
       <details class="text-xs text-gray-400">
-        <summary class="cursor-pointer hover:text-gray-600">Berechnungs-Details</summary>
+        <summary class="cursor-pointer hover:text-gray-600">
+          Berechnungs-Details ({{ lastSparkTime }}ms)
+        </summary>
         <pre class="mt-2 p-2 bg-gray-50 rounded overflow-x-auto">{{ lastQuery }}</pre>
         <p class="mt-1">Score = (Fahrten × ∅Preis) / ∅Dauer</p>
       </details>
@@ -124,8 +128,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import { fetchTopRoutes, countTrips, filtersToObject, checkBackendHealth } from '../api/backend.js'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { countTrips, filtersToObject, checkBackendHealth } from '../api/backend.js'
 
 const props = defineProps({
   activeFilters: {
@@ -141,24 +145,16 @@ const tripCount = ref(0)
 const backendOnline = ref(false)
 const hasCalculated = ref(false)
 const lastQuery = ref('')
+const lastSparkTime = ref(0)
 const zoneNames = ref({})
+
+// AbortController für Request-Abbruch
+let currentAbortController = null
+let debounceTimer = null
 
 // Computed
 const canAnalyze = computed(() => {
   return backendOnline.value && tripCount.value > 0 && tripCount.value <= 1000000
-})
-
-const buttonClass = computed(() => {
-  if (loading.value) {
-    return 'bg-blue-400 text-white cursor-wait'
-  }
-  if (!backendOnline.value) {
-    return 'bg-gray-200 text-gray-500 cursor-not-allowed'
-  }
-  if (tripCount.value > 1000000) {
-    return 'bg-yellow-100 text-yellow-700 cursor-not-allowed'
-  }
-  return 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
 })
 
 // Methoden
@@ -179,22 +175,75 @@ async function updateTripCount() {
 }
 
 async function calculateRoutes() {
-  if (!canAnalyze.value) return
+  if (!canAnalyze.value) {
+    routes.value = []
+    return
+  }
   
+  // Vorherigen Request abbrechen
+  if (currentAbortController) {
+    currentAbortController.abort()
+  }
+  
+  currentAbortController = new AbortController()
   loading.value = true
   hasCalculated.value = true
   
   try {
     const filters = filtersToObject(props.activeFilters)
-    const result = await fetchTopRoutes(filters, 5)
+    
+    const response = await fetch('/api/top-routes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filters, limit: 5 }),
+      signal: currentAbortController.signal
+    })
+    
+    if (!response.ok) throw new Error('API Error')
+    
+    const result = await response.json()
     routes.value = result.routes || []
     lastQuery.value = result.query || ''
+    lastSparkTime.value = result.spark_time_ms || 0
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Request abgebrochen - neue Filter aktiv')
+      return // Nicht als Fehler behandeln
+    }
     console.error('Route calculation error:', error)
     routes.value = []
   } finally {
     loading.value = false
+    currentAbortController = null
   }
+}
+
+// Debounced auto-calculate
+function scheduleCalculation() {
+  // Clear pending timer
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+  
+  // Vorherigen Request abbrechen
+  if (currentAbortController) {
+    currentAbortController.abort()
+    loading.value = false
+  }
+  
+  // Reset UI sofort
+  routes.value = []
+  hasCalculated.value = false
+  
+  // Count sofort aktualisieren, dann berechnen
+  updateTripCount().then(() => {
+    // Mit kurzer Verzögerung berechnen (falls canAnalyze)
+    if (canAnalyze.value) {
+      debounceTimer = setTimeout(() => {
+        calculateRoutes()
+      }, 300) // 300ms Debounce
+    }
+  })
 }
 
 function getMedal(index) {
@@ -234,12 +283,20 @@ async function loadZoneNames() {
   }
 }
 
-// Filter-Änderungen beobachten
+// Filter-Änderungen beobachten -> automatisch berechnen
 watch(() => props.activeFilters, () => {
-  routes.value = []
-  hasCalculated.value = false
-  updateTripCount()
+  scheduleCalculation()
 }, { deep: true })
+
+// Cleanup
+onUnmounted(() => {
+  if (currentAbortController) {
+    currentAbortController.abort()
+  }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+})
 
 // Initial
 onMounted(async () => {
@@ -247,6 +304,10 @@ onMounted(async () => {
   if (backendOnline.value) {
     await loadZoneNames()
     await updateTripCount()
+    // Initial berechnen wenn möglich
+    if (canAnalyze.value) {
+      calculateRoutes()
+    }
   }
 })
 </script>
