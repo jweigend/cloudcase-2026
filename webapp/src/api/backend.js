@@ -47,18 +47,34 @@ export async function fetchTopRoutes(filters = {}, limit = 5) {
  * Konvertiert activeFilters Array zu Filter-Objekt für Backend
  * @param {string[]} activeFilters - Array von "field:value" Strings
  * @returns {Object} Filter-Objekt für Backend
+ * 
+ * Unterstützt:
+ * - Einfache Filter: "payment_type:1" 
+ * - Range-Filter: "total_amount:[10 TO 20]"
  */
 export function filtersToObject(activeFilters) {
   const result = {}
   
   for (const fq of activeFilters) {
-    const [field, value] = fq.split(':')
+    // Finde ersten : der nicht Teil einer Range ist
+    const colonIndex = fq.indexOf(':')
+    if (colonIndex === -1) continue
+    
+    const field = fq.substring(0, colonIndex)
+    const value = fq.substring(colonIndex + 1)
+    
     if (!result[field]) {
       result[field] = []
     }
-    // Versuche als Zahl zu parsen
-    const numValue = parseInt(value, 10)
-    result[field].push(isNaN(numValue) ? value : numValue)
+    
+    // Range-Filter behalten (z.B. "[10 TO 20]")
+    if (value.startsWith('[') && value.includes(' TO ')) {
+      result[field].push(value)
+    } else {
+      // Versuche als Zahl zu parsen
+      const numValue = parseInt(value, 10)
+      result[field].push(isNaN(numValue) ? value : numValue)
+    }
   }
   
   return result

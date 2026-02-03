@@ -5,7 +5,45 @@
 const SOLR_BASE = '/solr/nyc-taxi-raw'
 
 /**
+ * Extrahiert das Feld aus einem Filter-Query
+ * z.B. "payment_type:1" -> "payment_type"
+ * z.B. "total_amount:[0 TO 10]" -> "total_amount"
+ */
+function getFieldFromFilter(fq) {
+  const colonIndex = fq.indexOf(':')
+  return colonIndex > 0 ? fq.substring(0, colonIndex) : null
+}
+
+/**
+ * Gruppiert Filter nach Feld und verbindet sie mit OR
+ * z.B. ["payment_type:1", "payment_type:2", "pickup_hour:14"]
+ * -> ["(payment_type:1 OR payment_type:2)", "pickup_hour:14"]
+ */
+function groupFiltersByField(filters) {
+  const grouped = {}
+  
+  filters.forEach(fq => {
+    const field = getFieldFromFilter(fq)
+    if (field) {
+      if (!grouped[field]) {
+        grouped[field] = []
+      }
+      grouped[field].push(fq)
+    }
+  })
+  
+  // Jede Gruppe mit OR verbinden
+  return Object.entries(grouped).map(([field, fqs]) => {
+    if (fqs.length === 1) {
+      return { field, query: fqs[0] }
+    }
+    return { field, query: `(${fqs.join(' OR ')})` }
+  })
+}
+
+/**
  * Holt Facetten und Gesamtanzahl aus Solr
+ * Verwendet Tag/Exclude für echte Mehrfachauswahl
  * @param {string[]} filters - Array von Filter-Queries (fq)
  * @param {string[]} facetFields - Felder für Facetten
  * @returns {Promise<{numFound: number, facets: Object}>}
@@ -20,14 +58,16 @@ export async function fetchFacets(filters = [], facetFields = []) {
     'facet.mincount': 1
   })
 
-  // Facetten-Felder hinzufügen
+  // Facetten-Felder mit Exclude-Tag hinzufügen
+  // Dadurch werden die Facetten-Zählungen ohne den eigenen Filter berechnet
   facetFields.forEach(field => {
-    params.append('facet.field', field)
+    params.append('facet.field', `{!ex=${field}}${field}`)
   })
 
-  // Filter hinzufügen
-  filters.forEach(fq => {
-    params.append('fq', fq)
+  // Filter gruppieren (gleiches Feld = OR) und mit Tags hinzufügen
+  const groupedFilters = groupFiltersByField(filters)
+  groupedFilters.forEach(({ field, query }) => {
+    params.append('fq', `{!tag=${field}}${query}`)
   })
 
   const response = await fetch(`${SOLR_BASE}/select?${params}`)
@@ -60,10 +100,16 @@ export async function fetchFacets(filters = [], facetFields = []) {
  * @returns {Promise<Array>}
  */
 export async function fetchStats(filters = [], groupBy = 'pickup_hour') {
-  // Filter als Query bauen
-  const q = filters.length > 0 
-    ? filters.map(f => `(${f})`).join(' AND ')
-    : '*:*'
+  // Filter gruppieren (gleiches Feld = OR, verschiedene Felder = AND)
+  const groupedFilters = groupFiltersByField(filters)
+  
+  // Query bauen und für Streaming Expression escapen
+  let q = '*:*'
+  if (groupedFilters.length > 0) {
+    q = groupedFilters.map(({ query }) => `(${query})`).join(' AND ')
+    // Escape für Streaming Expression (doppelte Anführungszeichen durch einfache ersetzen)
+    q = q.replace(/"/g, '\\"')
+  }
 
   const expr = `
     rollup(
@@ -115,8 +161,10 @@ export async function fetchFareDistribution(filters = []) {
     })
   })
 
-  filters.forEach(fq => {
-    params.append('fq', fq)
+  // Filter gruppieren (gleiches Feld = OR)
+  const groupedFilters = groupFiltersByField(filters)
+  groupedFilters.forEach(({ query }) => {
+    params.append('fq', query)
   })
 
   const response = await fetch(`${SOLR_BASE}/select?${params}`)
@@ -125,6 +173,7 @@ export async function fetchFareDistribution(filters = []) {
   const buckets = data.facets?.fare_buckets?.buckets || []
   return buckets.map(b => ({
     label: `$${b.val}-${b.val + 10}`,
-    count: b.count
+    count: b.count,
+    val: b.val
   }))
 }

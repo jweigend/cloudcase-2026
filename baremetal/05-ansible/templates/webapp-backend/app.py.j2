@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Flask Backend für Top-Routen-Berechnung mit PySpark
+Nutzt nodelokales Laden via /export Handler für maximale Performance
 Deployed via Ansible auf {{ inventory_hostname }}
 """
 
@@ -9,6 +10,7 @@ from flask_cors import CORS
 import requests
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType, StringType
 import logging
 import os
 
@@ -24,20 +26,21 @@ logger = logging.getLogger(__name__)
 
 # Konfiguration
 SPARK_MASTER = "{{ spark_master }}"
-SOLR_URL = "http://{{ solr_host }}:{{ solr_port }}/solr/nyc-taxi-raw"
 SPARK_HOME = "{{ spark_home }}"
+SOLR_NODES = ["node1.cloud.local", "node2.cloud.local", "node3.cloud.local", "node4.cloud.local"]
+SOLR_PORT = {{ solr_port }}
+COLLECTION = "nyc-taxi-raw"
+SOLR_URL = "http://{{ solr_host }}:{{ solr_port }}/solr/nyc-taxi-raw"
 
 # Spark Session (lazy init)
 _spark = None
 
 def get_spark():
-    """Lazy Spark Session Initialisierung mit Wiederherstellung"""
+    """Lazy Spark Session Initialisierung für Cluster-Modus"""
     global _spark
     
-    # Prüfen ob Session existiert und noch aktiv ist
     if _spark is not None:
         try:
-            # Test ob SparkContext noch läuft
             _ = _spark.sparkContext.applicationId
             return _spark
         except Exception:
@@ -46,7 +49,6 @@ def get_spark():
     
     logger.info(f"Initialisiere Spark Session mit Master: {SPARK_MASTER}")
     
-    # SPARK_HOME setzen
     os.environ["SPARK_HOME"] = SPARK_HOME
     
     _spark = SparkSession.builder \
@@ -58,10 +60,47 @@ def get_spark():
         .config("spark.executor.instances", "4") \
         .config("spark.driver.memory", "4g") \
         .config("spark.sql.shuffle.partitions", "32") \
+        .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .getOrCreate()
     
-    logger.info("Spark Session bereit")
+    logger.info("Spark Session bereit (Cluster-Modus)")
     return _spark
+
+
+def get_shard_info():
+    """
+    Holt Shard-zu-Node Mapping von Solr Cluster Status.
+    Returns: Liste von {"shard": "shard1", "node": "node4.cloud.local", "core": "nyc-taxi-raw_shard1_replica_n6"}
+    """
+    url = f"http://{SOLR_NODES[0]}:{SOLR_PORT}/solr/admin/collections"
+    params = {"action": "CLUSTERSTATUS", "collection": COLLECTION, "wt": "json"}
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        shards = data["cluster"]["collections"][COLLECTION]["shards"]
+        shard_info = []
+        
+        for shard_name, shard_data in shards.items():
+            for replica_name, replica_data in shard_data["replicas"].items():
+                if replica_data.get("leader") == "true":
+                    node_name = replica_data["node_name"].replace(":8983_solr", "")
+                    shard_info.append({
+                        "shard": shard_name,
+                        "node": node_name,
+                        "core": replica_data["core"],
+                        "base_url": replica_data["base_url"]
+                    })
+        
+        logger.info(f"Shard-Info: {shard_info}")
+        return shard_info
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Holen der Shard-Info: {e}")
+        return [{"shard": f"shard{i+1}", "node": node, "core": f"{COLLECTION}_shard{i+1}"} 
+                for i, node in enumerate(SOLR_NODES)]
 
 
 def build_solr_query(filters):
@@ -70,6 +109,7 @@ def build_solr_query(filters):
     
     Objektformat (neu):
     filters: {"pickup_hour": [18, 19], "pickup_dayofweek": [6]}
+    filters: {"total_amount": ["[10 TO 20]"]}  # Range-Filter
     
     Arrayformat (alt, Kompatibilität):
     filters: ["pickup_hour:18", "pickup_dayofweek:6"]
@@ -82,8 +122,18 @@ def build_solr_query(filters):
         parts = []
         for field, values in filters.items():
             if isinstance(values, list):
-                value_str = " OR ".join([str(v) for v in values])
-                parts.append(f"{field}:({value_str})")
+                # Range-Filter erkennen (beginnt mit '[')
+                range_values = [v for v in values if isinstance(v, str) and v.startswith('[')]
+                normal_values = [v for v in values if not (isinstance(v, str) and v.startswith('['))]
+                
+                # Range-Filter direkt anhängen
+                for rv in range_values:
+                    parts.append(f"{field}:{rv}")
+                
+                # Normale Werte mit OR gruppieren
+                if normal_values:
+                    value_str = " OR ".join([str(v) for v in normal_values])
+                    parts.append(f"{field}:({value_str})")
             else:
                 parts.append(f"{field}:{values}")
         return " AND ".join(parts) if parts else "*:*"
@@ -108,6 +158,9 @@ def health():
 def count_trips():
     """
     Zählt Fahrten basierend auf Filtern (schnell via Solr).
+    Unterstützt:
+    - Einfache Filter: {"payment_type": [1, 2]}
+    - Range-Filter: {"total_amount": ["[10 TO 20]"]}
     """
     try:
         data = request.get_json() or {}
@@ -117,8 +170,18 @@ def count_trips():
         fq_parts = []
         for field, values in filters.items():
             if isinstance(values, list):
-                value_str = " OR ".join([str(v) for v in values])
-                fq_parts.append(f"{field}:({value_str})")
+                # Range-Filter erkennen (beginnt mit '[')
+                range_values = [v for v in values if isinstance(v, str) and v.startswith('[')]
+                normal_values = [v for v in values if not (isinstance(v, str) and v.startswith('['))]
+                
+                # Range-Filter direkt anhängen
+                for rv in range_values:
+                    fq_parts.append(f"{field}:{rv}")
+                
+                # Normale Werte mit OR gruppieren
+                if normal_values:
+                    value_str = " OR ".join([str(v) for v in normal_values])
+                    fq_parts.append(f"{field}:({value_str})")
             else:
                 fq_parts.append(f"{field}:{values}")
         
@@ -151,6 +214,9 @@ def count_trips():
 def top_routes():
     """
     Berechnet die Top 5 lukrativsten Routen basierend auf Filtern.
+    Nutzt nodelokales Laden via /export Handler für maximale Performance.
+    
+    Jeder Spark Worker lädt seinen lokalen Shard parallel.
     """
     import time
     start_time = time.time()
@@ -164,59 +230,89 @@ def top_routes():
         solr_query = build_solr_query(filters)
         logger.info(f"Solr Query: {solr_query}")
         
+        # Shard-Info holen
+        shard_info = get_shard_info()
+        
         # Spark Session holen
         spark = get_spark()
         
-        # Daten von Solr per HTTP/Cursor laden
+        # Felder für Export
         fields = "PULocationID,DOLocationID,total_amount,trip_distance,tpep_pickup_datetime,tpep_dropoff_datetime"
         
-        all_docs = []
-        cursor_mark = "*"
-        batch_size = 10000
-        max_docs = 1000000
+        # Broadcast: Query und Fields an alle Worker
+        query_bc = spark.sparkContext.broadcast(solr_query)
+        fields_bc = spark.sparkContext.broadcast(fields)
+        solr_port_bc = spark.sparkContext.broadcast(SOLR_PORT)
         
-        while len(all_docs) < max_docs:
+        # RDD mit Shard-Infos erstellen (1 Partition pro Shard)
+        shard_rdd = spark.sparkContext.parallelize(shard_info, len(shard_info))
+        
+        def load_shard_via_export(shard):
+            """
+            Läuft auf jedem Worker - lädt Shard-Daten via /export Handler.
+            Der /export Handler ist optimiert für vollständige Ergebnis-Streams.
+            """
+            import requests
+            
+            node = shard["node"]
+            core = shard["core"]
+            query = query_bc.value
+            fl = fields_bc.value
+            port = solr_port_bc.value
+            
+            # /export URL für diesen spezifischen Core (Shard)
+            export_url = f"http://{node}:{port}/solr/{core}/export"
+            
             params = {
-                "q": solr_query,
-                "fl": fields,
-                "rows": batch_size,
-                "sort": "id asc",
-                "cursorMark": cursor_mark,
+                "q": query,
+                "fl": fl,
+                "sort": "PULocationID asc, DOLocationID asc",
                 "wt": "json"
             }
             
-            response = requests.get(f"{SOLR_URL}/select", params=params, timeout=30)
-            response.raise_for_status()
-            result = response.json()
+            docs = []
+            try:
+                response = requests.get(export_url, params=params, timeout=120, stream=True)
+                response.raise_for_status()
+                
+                result = response.json()
+                docs = result.get("response", {}).get("docs", [])
+                
+            except Exception as e:
+                print(f"Fehler beim Laden von {node}/{core}: {e}")
             
-            docs = result.get("response", {}).get("docs", [])
-            all_docs.extend(docs)
-            
-            next_cursor = result.get("nextCursorMark")
-            if next_cursor == cursor_mark or not docs:
-                break
-            cursor_mark = next_cursor
-            
-            if len(all_docs) >= max_docs:
-                all_docs = all_docs[:max_docs]
-                break
+            return docs
         
-        logger.info(f"Geladen: {len(all_docs)} Dokumente von Solr")
+        # Parallel von allen Shards laden
+        docs_rdd = shard_rdd.flatMap(load_shard_via_export)
         
-        if not all_docs:
-            return jsonify({
-                "routes": [],
-                "total_trips": 0,
-                "spark_time_ms": int((time.time() - start_time) * 1000),
-                "message": "Keine Daten für diese Filter gefunden"
-            })
+        # Zu DataFrame konvertieren mit Schema
+        schema = StructType([
+            StructField("PULocationID", IntegerType(), True),
+            StructField("DOLocationID", IntegerType(), True),
+            StructField("total_amount", DoubleType(), True),
+            StructField("trip_distance", DoubleType(), True),
+            StructField("tpep_pickup_datetime", StringType(), True),
+            StructField("tpep_dropoff_datetime", StringType(), True)
+        ])
         
-        # In Spark DataFrame konvertieren
-        df = spark.createDataFrame(all_docs)
+        df = spark.createDataFrame(docs_rdd, schema)
         
         # Cache für mehrfache Nutzung
         df.cache()
-        total_trips = len(all_docs)
+        total_trips = df.count()
+        
+        load_time = int((time.time() - start_time) * 1000)
+        logger.info(f"Parallel geladen: {total_trips} Dokumente von {len(shard_info)} Shards in {load_time}ms")
+        
+        if total_trips == 0:
+            return jsonify({
+                "routes": [],
+                "total_trips": 0,
+                "spark_time_ms": load_time,
+                "load_strategy": "parallel_shards",
+                "message": "Keine Daten für diese Filter gefunden"
+            })
         
         # Fahrtdauer berechnen (in Minuten)
         # Solr liefert ISO 8601 Format: 2023-01-18T15:21:19Z
@@ -283,6 +379,8 @@ def top_routes():
             "routes": routes_list,
             "total_trips": total_trips,
             "spark_time_ms": elapsed_ms,
+            "load_strategy": "parallel_shards",
+            "shards_used": len(shard_info),
             "query": solr_query
         })
         

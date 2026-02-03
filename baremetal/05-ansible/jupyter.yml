@@ -145,6 +145,7 @@
         group: "{{ jupyter_user }}"
         mode: '0644'
         force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
 
     - name: Deploy Spark example notebook
       ansible.builtin.template:
@@ -154,6 +155,7 @@
         group: "{{ jupyter_user }}"
         mode: '0644'
         force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
 
     - name: Deploy Solr example notebook
       ansible.builtin.template:
@@ -163,6 +165,7 @@
         group: "{{ jupyter_user }}"
         mode: '0644'
         force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
 
     - name: Deploy NYC Taxi analysis notebook
       ansible.builtin.template:
@@ -172,6 +175,7 @@
         group: "{{ jupyter_user }}"
         mode: '0644'
         force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
 
     - name: Deploy Lambda Architecture notebook
       ansible.builtin.template:
@@ -181,6 +185,7 @@
         group: "{{ jupyter_user }}"
         mode: '0644'
         force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
 
     - name: Deploy Drill-Down Architecture notebook
       ansible.builtin.template:
@@ -190,6 +195,7 @@
         group: "{{ jupyter_user }}"
         mode: '0644'
         force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
 
     - name: Create datasets directory
       ansible.builtin.file:

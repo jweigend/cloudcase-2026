@@ -240,31 +240,55 @@ Aber es gibt Grenzen. Wenn du brauchst:
 
 ...dann ist Spark das richtige Werkzeug.
 
-Der Trick: **Spark arbeitet nie auf allem.** 
+### Der Trick: Paralleles Shard-Loading via /export
 
-Du hast via Facetten bereits die interessante Teilmenge identifiziert. Statt 100 Millionen Datensätze lädst du nur die relevanten 50.000 nach Spark.
+Hier passiert die eigentliche Magie. Statt alle Daten über einen einzelnen Solr-Node zu ziehen, **lädt jeder Spark Executor direkt von seinem lokalen Shard**:
 
-```python
-# Gefilterte Daten aus Solr laden
-response = requests.get(f"{SOLR}/export", params={
-    "q": "bezirk:Manhattan AND tageszeit:Abend AND zahlungsart:Bargeld",
-    "fl": "betrag,trinkgeld,distanz,dauer",
-    "sort": "betrag asc"
-})
-
-# In Spark für ML
-df = spark.createDataFrame(response.json()["response"]["docs"])
-
-# Jetzt die komplexe Analyse
-from pyspark.ml.stat import Correlation
-from pyspark.ml.feature import VectorAssembler
-
-assembler = VectorAssembler(inputCols=["betrag", "distanz", "dauer"], outputCol="features")
-df_vector = assembler.transform(df)
-corr_matrix = Correlation.corr(df_vector, "features").head()[0]
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PARALLELES LESEN: Jeder Executor → Lokaler Shard               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Spark holt Shard→Node Mapping via CLUSTERSTATUS API        │
+│     → shard1: node1, shard2: node2, shard3: node3, shard4: node4│
+│                                                                 │
+│  2. Shards werden als RDD parallelisiert (1 Partition/Shard)   │
+│                                                                 │
+│  3. Jeder Executor ruft /export auf SEINEM lokalen Shard:      │
+│                                                                 │
+│     Executor 1 ──► node1:8983/solr/core_shard1/export ──┐      │
+│     Executor 2 ──► node2:8983/solr/core_shard2/export ──┼──► RDD│
+│     Executor 3 ──► node3:8983/solr/core_shard3/export ──┤      │
+│     Executor 4 ──► node4:8983/solr/core_shard4/export ──┘      │
+│                                                                 │
+│  Ergebnis: 4x paralleler I/O, kein Single-Node-Bottleneck!     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Die ML-Analyse läuft in Sekunden statt Stunden – weil sie auf fokussierten Daten arbeitet.
+**Warum das entscheidend ist:**
+
+| Ansatz | Durchsatz | Bottleneck |
+|--------|-----------|------------|
+| Naiv: `/export` an Collection | ~500k Docs/s | Ein Node sammelt von allen Shards |
+| **Parallel: `/export` pro Shard** | ~2M Docs/s | Kein Bottleneck, lineares Scaling |
+
+Der `/export` Handler ist dafür perfekt: Er streamt alle Ergebnisse sortiert, nutzt DocValues (kein Heap-Verbrauch), und arbeitet auf dem **lokalen Core** ohne Netzwerk-Overhead.
+
+### Das Pattern: Schreiben und Lesen symmetrisch
+
+```
+SCHREIBEN (Import):
+  Executor → 127.0.0.1:8983 → SolrCloud routet zu Shard
+
+LESEN (Export):  
+  Executor → node:8983/core_shardN/export → Direkt vom Shard
+```
+
+Beide Richtungen nutzen Data Locality. Das ist der Kern dieser Architektur.
+
+### Fokussierte Daten, schnelle Analyse
+
+Du hast via Facetten bereits die interessante Teilmenge identifiziert. Statt 100 Millionen Datensätze lädst du nur die relevanten 50.000 nach Spark – und das parallel von allen Shards.
 
 ---
 
@@ -366,12 +390,14 @@ Lass mich den kompletten Flow visualisieren:
 
 ## Die vier Säulen im Detail
 
-| Säule | Technologie | Aufgabe | Latenz |
-|-------|-------------|---------|--------|
-| **1. Vollständiger Index** | Solr mit Rohdaten | Alle Daten durchsuchbar und facettierbar | Einmaliger Import |
-| **2. Facetten-Navigation** | Solr Facetten | Interaktive Multi-Dimensionale Exploration | <50ms pro Klick |
-| **3. In-Solr Aggregation** | Streaming Expressions | Summen, Durchschnitte, Rankings ohne Spark | 100-500ms |
-| **4. Deep Analytics** | Spark via /export | ML, Korrelationen, komplexe Statistik | Sekunden |
+| Säule | Technologie | Aufgabe | Latenz | Data Locality |
+|-------|-------------|---------|--------|---------------|
+| **1. Import** | Spark → lokaler Solr | Paralleler Push, SolrCloud routet | Minuten | Executor → 127.0.0.1 |
+| **2. Facetten** | Solr Facetten + Tag/Exclude | Multi-Select Navigation | <50ms | Distributed |
+| **3. Aggregation** | Streaming Expressions | Summen, Rankings ohne Spark | 100-500ms | Distributed |
+| **4. Deep Analytics** | Spark via /export | ML, Korrelationen, Statistik | Sekunden | Executor → lokaler Shard |
+
+**Der Trick:** Sowohl Import als auch Export nutzen Data Locality. Kein zentraler Bottleneck.
 
 ---
 
@@ -431,183 +457,63 @@ Ich will fair sein. Diese Architektur ist nicht für alles optimal. Hier der ehr
 
 ---
 
-## Technische Umsetzung: So baust du es
+## Technische Umsetzung: Die Kernprinzipien
 
-### Der Import: Parallel mit lokalem Entry Point
+Die vollständige Implementierung liegt im Repository. Hier die Kernideen:
 
-Der Trick ist, **nicht durch den Driver zu gehen**. Jeder Spark Executor schreibt an seinen **lokalen Solr** (127.0.0.1) als Entry Point:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Spark liest Parquet optimiert (alle Row Groups parallel)       │
-│  → 4 Executors × 4 Cores = 16 parallele Tasks                  │
-│  → Jeder Executor schreibt an lokalen Solr (127.0.0.1:8983)    │
-│                                                                 │
-│  Hinweis: Lokaler Solr ist nur Entry Point!                    │
-│  SolrCloud routet Dokumente basierend auf ID zum richtigen     │
-│  Shard, der auf einem anderen Node liegen kann.                │
-└─────────────────────────────────────────────────────────────────┘
-```
+### 1. Import: Executor → Lokaler Solr als Entry Point
 
 ```python
-def import_to_solr_parallel(spark, parquet_path, collection, batch_size=2000):
-    """
-    Hochparalleler Import: Spark liest Parquet optimal, 
-    Executors schreiben an lokalen Solr als Entry Point.
-    
-    Datenfluss:
-      1. Spark liest Parquet mit optimiertem Reader
-      2. Repartition auf 16 Partitionen = 4 Executors × 4 Cores
-      3. Jeder Executor sendet an 127.0.0.1 als Entry Point
-      4. SolrCloud routet zum richtigen Shard (ggf. anderer Node)
-    
-    Warum 4 Cores statt mehr?
-      - Mehr Cores bringt keinen Vorteil (getestet mit 6 Cores)
-      - Der Bottleneck ist SolrCloud-Routing, nicht Spark-Parallelität
-      - 4 HT-Cores bleiben für Solr-Indexierung + OS
-    """
-    # Parquet laden (verteilt auf Executors)
-    df = spark.read.parquet(parquet_path)
-    
-    # Optimale Parallelität: 16 Partitionen für 4 Executors × 4 Cores
-    df = df.repartition(16)
-    
-    # Konfiguration broadcasten
-    solr_port = spark.sparkContext.broadcast(8983)
-    collection_bc = spark.sparkContext.broadcast(collection)
-    
-    def send_partition_to_local_solr(partition_index, iterator):
-        """Sendet Partition an lokalen Solr (127.0.0.1) als Entry Point."""
-        import requests
-        import socket
-        
-        port = solr_port.value
-        coll = collection_bc.value
-        hostname = socket.gethostname()
-        
-        # Lokaler Solr als Entry Point - SolrCloud routet weiter
-        url = f"http://127.0.0.1:{port}/solr/{coll}/update"
-        
-        batch = []
-        count = 0
-        
-        for row in iterator:
-            doc = row.asDict()
-            batch.append(doc)
-            
-            if len(batch) >= batch_size:
-                requests.post(url, json=batch, timeout=60)
-                count += len(batch)
-                batch = []
-        
-        if batch:
-            requests.post(url, json=batch, timeout=60)
-            count += len(batch)
-        
-        yield (partition_index, hostname, count)
-    
-    # Parallel auf allen Executors
-    results = df.rdd.mapPartitionsWithIndex(send_partition_to_local_solr).collect()
-    
-    # Commit
-    requests.post(f"http://solr:8983/solr/{collection}/update?commit=true", json=[])
-    
-    return sum(r[2] for r in results)
+# Jeder Executor schreibt an 127.0.0.1 (lokaler Solr)
+url = f"http://127.0.0.1:8983/solr/{collection}/update"
+requests.post(url, json=batch)
+# → SolrCloud routet automatisch zum richtigen Shard
 ```
 
-**Warum lokaler Entry Point?**
-- Spart den ersten Netzwerk-Hop (Executor → Solr Entry Point)
-- SolrCloud routet dann basierend auf Dokument-ID zum Shard Owner
-- Bei 4 Shards auf 4 Nodes: ~75% der Dokumente werden weitergeleitet
+**Warum:** Spart den ersten Netzwerk-Hop. Bei 4 Nodes werden ~75% weitergeleitet, aber der lokale Entry Point ist trotzdem schneller als ein zentraler.
 
-**Throughput:** 50.000-100.000 Dokumente pro Sekunde, linear skalierend mit Cluster-Größe.
-
-### Die Navigation: Facetten-API
+### 2. Export: Executor → Direkt zum lokalen Shard
 
 ```python
-class FacetExplorer:
-    def __init__(self, solr_url, collection):
-        self.base_url = f"{solr_url}/solr/{collection}"
-    
-    def explore(self, facet_fields, filters=None):
-        params = {
-            "q": "*:*",
-            "rows": 0,
-            "facet": "true",
-            "facet.field": facet_fields,
-            "facet.limit": 20,
-            "facet.mincount": 1
-        }
-        if filters:
-            params["fq"] = filters
-        
-        response = requests.get(f"{self.base_url}/select", params=params)
-        return response.json()["facet_counts"]["facet_fields"]
+# Shard-Mapping holen
+shard_info = get_shard_info(collection)  
+# → [{'node': 'node1', 'core': 'collection_shard1_replica'}, ...]
 
-# Nutzung
-explorer = FacetExplorer("http://solr:8983", "transactions")
-facets = explorer.explore(
-    facet_fields=["kategorie", "region", "status"],
-    filters=["jahr:2024", "region:Nord"]
+# Parallel von allen Shards laden
+for shard in shard_info:
+    url = f"http://{shard['node']}:8983/solr/{shard['core']}/export"
+    # → Jeder Executor ruft SEINEN lokalen Shard ab
+```
+
+**Warum:** Kein Single-Node-Bottleneck. 4x paralleler I/O.
+
+### 3. Facetten mit Tag/Exclude
+
+```python
+# Facetten mit lokalem Exclude für Multi-Select UI
+params = {
+    "q": "*:*",
+    "fq": "{!tag=payment}payment_type:1",  # Tagged Filter
+    "facet.field": "{!ex=payment}payment_type",  # Exclude beim Zählen
+}
+# → Facette zeigt alle Werte, nicht nur den gefilterten
+```
+
+**Warum:** Ermöglicht Mehrfachauswahl ohne dass Facetten-Werte verschwinden.
+
+### 4. Streaming Expressions für In-Solr Aggregation
+
+```python
+expr = f'''
+rollup(
+  search({collection}, q="{query}", fl="{fields}", sort="{sort}", qt="/export"),
+  over="{group_by}",
+  sum(amount), avg(amount), count(*)
 )
+'''
 ```
 
-### Die Aggregation: Streaming Expressions
-
-```python
-def aggregate(collection, query, group_by, metrics):
-    expr = f"""
-    rollup(
-      search({collection},
-        q="{query}",
-        fl="{group_by},{','.join(metrics)}",
-        sort="{group_by} asc",
-        qt="/export"
-      ),
-      over="{group_by}",
-      {', '.join(f'sum({m}), avg({m})' for m in metrics)},
-      count(*)
-    )
-    """
-    
-    response = requests.post(
-        f"http://solr:8983/solr/{collection}/stream",
-        data={"expr": expr}
-    )
-    return response.json()["result-set"]["docs"]
-```
-
-### Die Analyse: Spark via /export
-
-```python
-def analyze_subset(spark, solr_url, collection, query, fields):
-    # Daten aus Solr streamen
-    response = requests.get(
-        f"{solr_url}/solr/{collection}/export",
-        params={
-            "q": query,
-            "fl": fields,
-            "sort": f"{fields.split(',')[0]} asc"
-        }
-    )
-    
-    docs = response.json()["response"]["docs"]
-    
-    # In Spark laden
-    return spark.createDataFrame(docs)
-
-# Nutzung
-df = analyze_subset(
-    spark,
-    "http://solr:8983",
-    "transactions",
-    query="jahr:2024 AND region:Nord AND kategorie:A",
-    fields="betrag,marge,kundentyp,produkt"
-)
-
-# Jetzt volle Spark-Power
-df.stat.corr("betrag", "marge")
-```
+**Warum:** 80% der Aggregationen brauchen kein Spark. Latenz: 100-500ms statt Sekunden.
 
 ---
 

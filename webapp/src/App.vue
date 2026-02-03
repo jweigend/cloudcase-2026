@@ -24,6 +24,7 @@
           :loading="loading"
           @toggle-filter="toggleFilter"
           @clear-filters="clearFilters"
+          @remove-filter="removeFilter"
         />
       </aside>
 
@@ -33,6 +34,9 @@
           :hourlyStats="hourlyStats"
           :fareDistribution="fareDistribution"
           :loading="loading"
+          :activeFilters="activeFilters"
+          @add-hour-filter="addHourFilter"
+          @add-fare-filter="addFareFilter"
         />
         
         <!-- Top Routes Panel -->
@@ -113,9 +117,41 @@ function toggleFilter(field, value) {
   }
 }
 
+// Stunden-Filter aus Chart hinzufügen/entfernen
+function addHourFilter(hour) {
+  const fq = `pickup_hour:${hour}`
+  const index = activeFilters.value.indexOf(fq)
+  
+  if (index === -1) {
+    activeFilters.value.push(fq)
+  } else {
+    activeFilters.value.splice(index, 1)
+  }
+}
+
+// Fahrpreis-Range-Filter aus Chart hinzufügen/entfernen
+function addFareFilter({ start, end }) {
+  const fq = `total_amount:[${start} TO ${end}]`
+  const index = activeFilters.value.indexOf(fq)
+  
+  if (index === -1) {
+    activeFilters.value.push(fq)
+  } else {
+    activeFilters.value.splice(index, 1)
+  }
+}
+
 // Alle Filter löschen
 function clearFilters() {
   activeFilters.value = []
+}
+
+// Einzelnen Filter entfernen (für Range-Filter aus Charts)
+function removeFilter(fq) {
+  const index = activeFilters.value.indexOf(fq)
+  if (index !== -1) {
+    activeFilters.value.splice(index, 1)
+  }
 }
 
 // Neu laden wenn Filter sich ändern
