@@ -14,6 +14,7 @@
     jupyter_data: /data/jupyter
     jupyter_port: 8888
     spark_home: /opt/spark
+    force_notebooks: "{{ force | default(false) | bool }}"
 
   tasks:
     # ============================================================
@@ -143,7 +144,7 @@
         owner: "{{ jupyter_user }}"
         group: "{{ jupyter_user }}"
         mode: '0644'
-        force: no  # Don't overwrite if user modified
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
 
     - name: Deploy Spark example notebook
       ansible.builtin.template:
@@ -152,7 +153,7 @@
         owner: "{{ jupyter_user }}"
         group: "{{ jupyter_user }}"
         mode: '0644'
-        force: no  # Don't overwrite if user modified
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
 
     - name: Deploy Solr example notebook
       ansible.builtin.template:
@@ -161,7 +162,7 @@
         owner: "{{ jupyter_user }}"
         group: "{{ jupyter_user }}"
         mode: '0644'
-        force: no  # Don't overwrite if user modified
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
 
     - name: Deploy NYC Taxi analysis notebook
       ansible.builtin.template:
@@ -170,7 +171,7 @@
         owner: "{{ jupyter_user }}"
         group: "{{ jupyter_user }}"
         mode: '0644'
-        force: no  # Don't overwrite if user modified
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
 
     - name: Deploy Lambda Architecture notebook
       ansible.builtin.template:
@@ -179,7 +180,7 @@
         owner: "{{ jupyter_user }}"
         group: "{{ jupyter_user }}"
         mode: '0644'
-        force: no  # Don't overwrite if user modified
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
 
     - name: Deploy Drill-Down Architecture notebook
       ansible.builtin.template:
@@ -188,7 +189,7 @@
         owner: "{{ jupyter_user }}"
         group: "{{ jupyter_user }}"
         mode: '0644'
-        force: no  # Don't overwrite if user modified
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
 
     - name: Create datasets directory
       ansible.builtin.file:

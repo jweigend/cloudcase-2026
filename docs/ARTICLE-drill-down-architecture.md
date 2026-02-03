@@ -53,26 +53,26 @@ Die Grundidee ist einfach: Nutze das beste Werkzeug für jeden Schritt.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                          │
-│                    DIE DRILL-DOWN ARCHITEKTUR                            │
-│                                                                          │
+│                                                                         │
+│                    DIE DRILL-DOWN ARCHITEKTUR                           │
+│                                                                         │
 │   ═══════════════════════════════════════════════════════════════════   │
-│                                                                          │
-│                         ┌─────────────────┐                              │
-│                         │   ROHDATEN      │                              │
-│                         │  ───────────    │                              │
-│                         │  Parquet, CSV,  │                              │
-│                         │  Kafka, APIs    │                              │
-│                         └────────┬────────┘                              │
-│                                  │                                       │
-│                                  │ Paralleler Import                     │
-│                                  │ via Spark                             │
-│                                  ▼                                       │
+│                                                                         │
+│                         ┌─────────────────┐                             │
+│                         │   ROHDATEN      │                             │
+│                         │  ───────────    │                             │
+│                         │  Parquet, CSV,  │                             │
+│                         │  Kafka, APIs    │                             │
+│                         └────────┬────────┘                             │
+│                                  │                                      │
+│                                  │ Paralleler Import                    │
+│                                  │ via Spark                            │
+│                                  ▼                                      │
 │   ┌──────────────────────────────────────────────────────────────────┐  │
-│   │                                                                   │  │
-│   │                        APACHE SOLR                                │  │
-│   │                     ════════════════                              │  │
-│   │                                                                   │  │
+│   │                                                                  │  │
+│   │                        APACHE SOLR                               │  │
+│   │                     ════════════════                             │  │
+│   │                                                                  │  │
 │   │    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │  │
 │   │    │ Invertierter│  │  Facetten   │  │  Streaming  │             │  │
 │   │    │    Index    │  │   Engine    │  │ Expressions │             │  │
@@ -80,21 +80,21 @@ Die Grundidee ist einfach: Nutze das beste Werkzeug für jeden Schritt.
 │   │    │ Alle Daten  │  │ Multi-Dim.  │  │  In-Solr    │             │  │
 │   │    │ durchsuchbar│  │ Navigation  │  │ Aggregation │             │  │
 │   │    └─────────────┘  └─────────────┘  └─────────────┘             │  │
-│   │                                                                   │  │
+│   │                                                                  │  │
 │   │         PHASE 1 & 2: Orientierung + Einschränkung                │  │
-│   │                    Latenz: < 50ms pro Interaktion                 │  │
-│   │                                                                   │  │
+│   │                    Latenz: < 50ms pro Interaktion                │  │
+│   │                                                                  │  │
 │   └──────────────────────────────────────────────────────────────────┘  │
-│                                  │                                       │
-│                                  │ User hat interessante                 │
-│                                  │ Teilmenge identifiziert               │
-│                                  │                                       │
-│                                  ▼                                       │
+│                                  │                                      │
+│                                  │ User hat interessante                │
+│                                  │ Teilmenge identifiziert              │
+│                                  │                                      │
+│                                  ▼                                      │
 │   ┌──────────────────────────────────────────────────────────────────┐  │
-│   │                                                                   │  │
-│   │                       APACHE SPARK                                │  │
-│   │                    ═════════════════                              │  │
-│   │                                                                   │  │
+│   │                                                                  │  │
+│   │                       APACHE SPARK                               │  │
+│   │                    ═════════════════                             │  │
+│   │                                                                  │  │
 │   │    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │  │
 │   │    │   Lädt nur  │  │  MLlib für  │  │   Window    │             │  │
 │   │    │  relevante  │  │  ML/Stats   │  │  Functions  │             │  │
@@ -102,12 +102,12 @@ Die Grundidee ist einfach: Nutze das beste Werkzeug für jeden Schritt.
 │   │    │ via /export │  │ Clustering, │  │  Komplexe   │             │  │
 │   │    │   Handler   │  │ Regression  │  │   Analytik  │             │  │
 │   │    └─────────────┘  └─────────────┘  └─────────────┘             │  │
-│   │                                                                   │  │
-│   │             PHASE 3: Tiefenanalyse auf fokussierter               │  │
-│   │                      Datenmenge (nicht auf allem!)                │  │
-│   │                                                                   │  │
+│   │                                                                  │  │
+│   │             PHASE 3: Tiefenanalyse auf fokussierter              │  │
+│   │                      Datenmenge (nicht auf allem!)               │  │
+│   │                                                                  │  │
 │   └──────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -433,17 +433,19 @@ Ich will fair sein. Diese Architektur ist nicht für alles optimal. Hier der ehr
 
 ## Technische Umsetzung: So baust du es
 
-### Der Import: Parallel mit Data Locality
+### Der Import: Parallel mit lokalem Entry Point
 
-Der Trick ist, **nicht durch den Driver zu gehen** und **Data Locality zu nutzen**. Jeder Spark Executor schreibt an seinen **lokalen Solr** (127.0.0.1) – kein Netzwerk-Overhead!
+Der Trick ist, **nicht durch den Driver zu gehen**. Jeder Spark Executor schreibt an seinen **lokalen Solr** (127.0.0.1) als Entry Point:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Spark liest Parquet optimiert (alle Row Groups parallel)       │
 │  → 4 Executors × 4 Cores = 16 parallele Tasks                  │
-│  → Jeder Executor schreibt an LOKALEN Solr (127.0.0.1:8983)    │
+│  → Jeder Executor schreibt an lokalen Solr (127.0.0.1:8983)    │
 │                                                                 │
-│  Data Locality: Solr-Write ist lokal = kein Netzwerk-Overhead! │
+│  Hinweis: Lokaler Solr ist nur Entry Point!                    │
+│  SolrCloud routet Dokumente basierend auf ID zum richtigen     │
+│  Shard, der auf einem anderen Node liegen kann.                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -451,12 +453,18 @@ Der Trick ist, **nicht durch den Driver zu gehen** und **Data Locality zu nutzen
 def import_to_solr_parallel(spark, parquet_path, collection, batch_size=2000):
     """
     Hochparalleler Import: Spark liest Parquet optimal, 
-    Executors schreiben an LOKALEN Solr.
+    Executors schreiben an lokalen Solr als Entry Point.
     
     Datenfluss:
       1. Spark liest Parquet mit optimiertem Reader
-      2. Repartition auf 16 Partitionen = 4 Executors × 4 Tasks
-      3. Jeder Executor sendet an 127.0.0.1 → Data Locality!
+      2. Repartition auf 16 Partitionen = 4 Executors × 4 Cores
+      3. Jeder Executor sendet an 127.0.0.1 als Entry Point
+      4. SolrCloud routet zum richtigen Shard (ggf. anderer Node)
+    
+    Warum 4 Cores statt mehr?
+      - Mehr Cores bringt keinen Vorteil (getestet mit 6 Cores)
+      - Der Bottleneck ist SolrCloud-Routing, nicht Spark-Parallelität
+      - 4 HT-Cores bleiben für Solr-Indexierung + OS
     """
     # Parquet laden (verteilt auf Executors)
     df = spark.read.parquet(parquet_path)
@@ -469,7 +477,7 @@ def import_to_solr_parallel(spark, parquet_path, collection, batch_size=2000):
     collection_bc = spark.sparkContext.broadcast(collection)
     
     def send_partition_to_local_solr(partition_index, iterator):
-        """Sendet Partition an LOKALEN Solr (127.0.0.1) - Data Locality!"""
+        """Sendet Partition an lokalen Solr (127.0.0.1) als Entry Point."""
         import requests
         import socket
         
@@ -477,7 +485,7 @@ def import_to_solr_parallel(spark, parquet_path, collection, batch_size=2000):
         coll = collection_bc.value
         hostname = socket.gethostname()
         
-        # LOKALER Solr - kein Netzwerk!
+        # Lokaler Solr als Entry Point - SolrCloud routet weiter
         url = f"http://127.0.0.1:{port}/solr/{coll}/update"
         
         batch = []
@@ -498,7 +506,7 @@ def import_to_solr_parallel(spark, parquet_path, collection, batch_size=2000):
         
         yield (partition_index, hostname, count)
     
-    # Parallel auf allen Executors - jeder schreibt lokal!
+    # Parallel auf allen Executors
     results = df.rdd.mapPartitionsWithIndex(send_partition_to_local_solr).collect()
     
     # Commit
@@ -507,10 +515,10 @@ def import_to_solr_parallel(spark, parquet_path, collection, batch_size=2000):
     return sum(r[2] for r in results)
 ```
 
-**Warum Data Locality?**
-- Der Shuffle (Repartition) ist unvermeidbar bei Parquet-Import
-- Aber der Solr-Write ist **lokal** = kein doppelter Netzwerk-Hop
-- Jeder Node hat Solr + Spark Executor = 127.0.0.1 ist immer da
+**Warum lokaler Entry Point?**
+- Spart den ersten Netzwerk-Hop (Executor → Solr Entry Point)
+- SolrCloud routet dann basierend auf Dokument-ID zum Shard Owner
+- Bei 4 Shards auf 4 Nodes: ~75% der Dokumente werden weitergeleitet
 
 **Throughput:** 50.000-100.000 Dokumente pro Sekunde, linear skalierend mit Cluster-Größe.
 
@@ -656,4 +664,4 @@ Diese Architektur liefert das. Seit 2010. Ohne Vendor Lock-in. Auf jedem Cluster
 
 Ich baue seit über 15 Jahren Datenplattformen. Von Enterprise Data Warehouses über Hadoop-Cluster bis zu modernen Cloud-Architekturen. Diese Kombination aus Solr und Spark ist eine der wenigen, die ich immer wieder empfehle – weil sie einfach funktioniert.
 
-*Fragen? Feedback? Erreiche mich auf [LinkedIn/Twitter/etc.]*
+*Fragen? Feedback? Erreiche mich auf X johannes.weigend*

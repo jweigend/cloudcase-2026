@@ -1,0 +1,28 @@
+[Unit]
+Description=Webapp Backend (Flask + PySpark) for Top Routes API
+After=network.target spark-master.service
+Wants=spark-master.service
+
+[Service]
+Type=simple
+User={{ backend_user }}
+Group={{ backend_user }}
+WorkingDirectory={{ backend_home }}
+Environment="SPARK_HOME={{ spark_home }}"
+Environment="PYSPARK_PYTHON=/usr/bin/python3"
+Environment="PYSPARK_DRIVER_PYTHON={{ backend_home }}/venv/bin/python"
+Environment="JAVA_HOME={{ java_home }}"
+ExecStart={{ backend_home }}/venv/bin/python {{ backend_home }}/app.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:{{ backend_home }}/logs/backend.log
+StandardError=append:{{ backend_home }}/logs/backend.log
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=65536
+
+[Install]
+WantedBy=multi-user.target

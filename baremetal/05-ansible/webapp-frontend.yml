@@ -1,0 +1,164 @@
+---
+# Webapp Frontend (Vue.js) Deployment auf node0
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml webapp-frontend.yml
+#
+# Erneutes Deployment erzwingen:
+#   ansible-playbook -i inventory.yml webapp-frontend.yml -e "force=true"
+#
+# Frontend ist erreichbar unter: http://node0.cloud.local:8080
+# (oder via nginx Reverse Proxy auf Port 80)
+
+- name: Deploy Webapp Frontend (Vue.js)
+  hosts: monitoring
+  vars:
+    frontend_user: cloudadmin
+    frontend_home: /opt/webapp-frontend
+    frontend_port: 8080
+    backend_url: "http://node0.cloud.local:5001"
+    solr_url: "http://node1.cloud.local:8983"
+    force_deploy: "{{ force | default(false) | bool }}"
+
+  tasks:
+    # ============================================================
+    # System-Pakete
+    # ============================================================
+    - name: Install system dependencies
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Install Node.js repository
+      ansible.builtin.shell: |
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    # ============================================================
+    # Verzeichnisse
+    # ============================================================
+    - name: Create frontend directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ frontend_user }}"
+        group: "{{ frontend_user }}"
+        mode: '0755'
+      loop:
+        - "{{ frontend_home }}"
+        - "{{ frontend_home }}/dist"
+
+    # ============================================================
+    # Webapp Source kopieren und bauen
+    # ============================================================
+    - name: Copy webapp source files
+      ansible.builtin.synchronize:
+        src: "{{ playbook_dir }}/../../webapp/"
+        dest: "{{ frontend_home }}/src/"
+        delete: yes
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=dist"
+          - "--exclude=.git"
+          - "--exclude=backend"
+      notify: Rebuild and restart frontend
+
+    - name: Deploy production vite config
+      ansible.builtin.template:
+        src: templates/webapp-frontend/vite.config.prod.js.j2
+        dest: "{{ frontend_home }}/src/vite.config.js"
+        owner: "{{ frontend_user }}"
+        group: "{{ frontend_user }}"
+        mode: '0644'
+        force: "{{ force_deploy }}"
+      notify: Rebuild and restart frontend
+
+    - name: Install npm dependencies
+      ansible.builtin.command:
+        cmd: npm install
+        chdir: "{{ frontend_home }}/src"
+      become_user: "{{ frontend_user }}"
+      register: npm_install
+      changed_when: "'added' in npm_install.stdout or 'updated' in npm_install.stdout"
+
+    - name: Build production bundle
+      ansible.builtin.command:
+        cmd: npm run build
+        chdir: "{{ frontend_home }}/src"
+      become_user: "{{ frontend_user }}"
+      register: npm_build
+      changed_when: true
+
+    - name: Copy dist to serving directory
+      ansible.builtin.shell: |
+        rm -rf {{ frontend_home }}/dist/*
+        cp -r {{ frontend_home }}/src/dist/* {{ frontend_home }}/dist/
+      become_user: "{{ frontend_user }}"
+
+    # ============================================================
+    # Nginx Konfiguration
+    # ============================================================
+    - name: Deploy nginx configuration
+      ansible.builtin.template:
+        src: templates/webapp-frontend/nginx-webapp.conf.j2
+        dest: /etc/nginx/sites-available/webapp
+        mode: '0644'
+      notify: Reload nginx
+
+    - name: Enable nginx site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/webapp
+        dest: /etc/nginx/sites-enabled/webapp
+        state: link
+      notify: Reload nginx
+
+    - name: Remove default nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
+    - name: Enable and start nginx
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+    # ============================================================
+    # Firewall
+    # ============================================================
+    - name: Allow HTTP port through firewall
+      community.general.ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: Allow frontend port through firewall
+      community.general.ufw:
+        rule: allow
+        port: "{{ frontend_port }}"
+        proto: tcp
+
+  handlers:
+    - name: Rebuild and restart frontend
+      ansible.builtin.shell: |
+        cd {{ frontend_home }}/src && npm run build
+        rm -rf {{ frontend_home }}/dist/*
+        cp -r {{ frontend_home }}/src/dist/* {{ frontend_home }}/dist/
+      become_user: "{{ frontend_user }}"
+      notify: Reload nginx
+
+    - name: Reload nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded

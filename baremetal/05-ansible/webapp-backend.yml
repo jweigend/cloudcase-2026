@@ -1,0 +1,120 @@
+---
+# Webapp Backend (Flask + PySpark) Deployment auf node0
+#
+# Verwendung:
+#   ansible-playbook -i inventory.yml webapp-backend.yml
+#
+# Erneutes Deployment erzwingen:
+#   ansible-playbook -i inventory.yml webapp-backend.yml -e "force=true"
+#
+# Backend ist erreichbar unter: http://node0.cloud.local:5001
+# Health Check: http://node0.cloud.local:5001/api/health
+
+- name: Deploy Webapp Backend (Flask + PySpark)
+  hosts: monitoring
+  vars:
+    backend_user: cloudadmin
+    backend_home: /opt/webapp-backend
+    backend_port: 5001
+    spark_home: /opt/spark
+    spark_master: "spark://node0.cloud.local:7077"
+    solr_host: "node1.cloud.local"
+    solr_port: 8983
+    force_deploy: "{{ force | default(false) | bool }}"
+
+  tasks:
+    # ============================================================
+    # System-Pakete
+    # ============================================================
+    - name: Install system dependencies
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+          - python3-venv
+          - python3-dev
+          - build-essential
+        state: present
+        update_cache: yes
+
+    # ============================================================
+    # Verzeichnisse
+    # ============================================================
+    - name: Create backend directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0755'
+      loop:
+        - "{{ backend_home }}"
+        - "{{ backend_home }}/logs"
+
+    # ============================================================
+    # Python Virtual Environment
+    # ============================================================
+    - name: Create Python virtual environment
+      ansible.builtin.command:
+        cmd: python3 -m venv {{ backend_home }}/venv
+        creates: "{{ backend_home }}/venv/bin/activate"
+      become_user: "{{ backend_user }}"
+
+    - name: Install Python packages
+      ansible.builtin.pip:
+        name:
+          - flask>=3.0.0
+          - flask-cors>=4.0.0
+          - requests>=2.31.0
+          - "pyspark=={{ spark_version }}"
+        virtualenv: "{{ backend_home }}/venv"
+        state: present
+      become_user: "{{ backend_user }}"
+
+    # ============================================================
+    # Backend Code deployen
+    # ============================================================
+    - name: Deploy backend application
+      ansible.builtin.template:
+        src: templates/webapp-backend/app.py.j2
+        dest: "{{ backend_home }}/app.py"
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0644'
+        force: "{{ force_deploy }}"
+      notify: Restart Webapp Backend
+
+    # ============================================================
+    # Systemd Service
+    # ============================================================
+    - name: Deploy systemd service
+      ansible.builtin.template:
+        src: templates/webapp-backend/webapp-backend.service.j2
+        dest: /etc/systemd/system/webapp-backend.service
+        mode: '0644'
+      notify: Restart Webapp Backend
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Webapp Backend
+      ansible.builtin.systemd:
+        name: webapp-backend
+        enabled: yes
+        state: started
+
+    # ============================================================
+    # Firewall (falls ufw aktiv)
+    # ============================================================
+    - name: Allow backend port through firewall
+      ansible.builtin.ufw:
+        rule: allow
+        port: "{{ backend_port }}"
+        proto: tcp
+      ignore_errors: yes
+
+  handlers:
+    - name: Restart Webapp Backend
+      ansible.builtin.systemd:
+        name: webapp-backend
+        state: restarted

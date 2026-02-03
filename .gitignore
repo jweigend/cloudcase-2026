@@ -18,3 +18,9 @@ Thumbs.db
 
 # Logs
 *.log
+# Node.js / Webapp
+webapp/node_modules/
+webapp/dist/
+webapp/.vite/
+webapp/backend/venv/
+webapp/backend/__pycache__/
