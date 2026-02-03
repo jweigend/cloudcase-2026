@@ -8,12 +8,14 @@ Ein portabler Big Data Cluster auf 5 Intel NUCs für Demos, Workshops und Entwic
 │                                                                         │
 │   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐           │
 │   │  node0  │ │  node1  │ │  node2  │ │  node3  │ │  node4  │           │
-│   │Jupyter  │ │  Master │ │  Worker │ │  Worker │ │  Worker │           │
-│   │Grafana  │ │   ZK    │ │   ZK    │ │   ZK    │ │  Solr   │           │
-│   │Promethe.│ │  Solr   │ │  Solr   │ │  Solr   │ │  Spark  │           │
+│   │ Spark   │ │  ZK     │ │  ZK     │ │  ZK     │ │  Solr   │           │
+│   │ Master  │ │  Solr   │ │  Solr   │ │  Solr   │ │  Spark  │           │
+│   │Jupyter  │ │  Spark  │ │  Spark  │ │  Spark  │ │  Worker │           │
+│   │Grafana  │ │  Worker │ │  Worker │ │  Worker │ │         │           │
+│   │Promethe.│ │         │ │         │ │         │ │         │           │
+│   │nginx    │ │         │ │         │ │         │ │         │           │
+│   │Backend  │ │         │ │         │ │         │ │         │           │
 │   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘           │
-│        │           │           │           │           │                │
-│     (dnsmasq)   (dnsmasq)  (dnsmasq)   (dnsmasq)   (dnsmasq)            │
 │        │           │           │           │           │                │
 │        └───────────┴───────────┴───────────┴───────────┘                │
 │                          Gigabit Switch                                 │
