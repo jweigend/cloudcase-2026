@@ -8,11 +8,23 @@ Type=simple
 User={{ backend_user }}
 Group={{ backend_user }}
 WorkingDirectory={{ backend_home }}
+
+# ============================================================
+# Umgebungsvariablen für backend-services.py
+# ============================================================
+Environment="SPARK_MASTER={{ spark_master }}"
 Environment="SPARK_HOME={{ spark_home }}"
+Environment="SOLR_HOST={{ solr_host }}"
+Environment="SOLR_PORT={{ solr_port }}"
+Environment="BACKEND_PORT={{ backend_port }}"
+Environment="DEBUG=false"
+
+# PySpark Konfiguration
 Environment="PYSPARK_PYTHON=/usr/bin/python3"
 Environment="PYSPARK_DRIVER_PYTHON={{ backend_home }}/venv/bin/python"
 Environment="JAVA_HOME={{ java_home }}"
-ExecStart={{ backend_home }}/venv/bin/python {{ backend_home }}/app.py
+
+ExecStart={{ backend_home }}/venv/bin/python {{ backend_home }}/backend_services.py
 Restart=always
 RestartSec=10
 

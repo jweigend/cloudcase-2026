@@ -71,12 +71,40 @@
       become_user: "{{ backend_user }}"
 
     # ============================================================
-    # Backend Code deployen
+    # Backend Code deployen (Single Source of Truth aus webapp/backend/)
     # ============================================================
-    - name: Deploy backend application
-      ansible.builtin.template:
-        src: templates/webapp-backend/app.py.j2
-        dest: "{{ backend_home }}/app.py"
+    - name: Create data directory
+      ansible.builtin.file:
+        path: "{{ backend_home }}/data"
+        state: directory
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0755'
+
+    - name: Deploy backend services (lokale API Endpoints)
+      ansible.builtin.copy:
+        src: ../../webapp/backend/backend_services.py
+        dest: "{{ backend_home }}/backend_services.py"
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0644'
+        force: "{{ force_deploy }}"
+      notify: Restart Webapp Backend
+
+    - name: Deploy top routes Spark service (Cluster-Code)
+      ansible.builtin.copy:
+        src: ../../webapp/backend/top_routes_solr_spark_service.py
+        dest: "{{ backend_home }}/top_routes_solr_spark_service.py"
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0644'
+        force: "{{ force_deploy }}"
+      notify: Restart Webapp Backend
+
+    - name: Deploy taxi zones data
+      ansible.builtin.copy:
+        src: ../../webapp/backend/data/taxi-zones.json
+        dest: "{{ backend_home }}/data/taxi-zones.json"
         owner: "{{ backend_user }}"
         group: "{{ backend_user }}"
         mode: '0644'

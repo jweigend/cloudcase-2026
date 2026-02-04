@@ -54,7 +54,7 @@ export async function fetchFacets(filters = [], facetFields = []) {
     rows: 0,
     wt: 'json',
     facet: 'true',
-    'facet.limit': 20,
+    'facet.limit': 30,  // Erhöht von 20 auf 30, damit alle 24 Uhrzeiten angezeigt werden
     'facet.mincount': 1
   })
 

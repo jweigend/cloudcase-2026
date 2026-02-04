@@ -88,8 +88,9 @@ docs/
 
 - Läuft auf node0 als systemd Service `webapp-backend`
 - Port 5001, nginx proxied `/api/` dorthin
-- Template: `templates/webapp-backend/app.py.j2`
-- Verwendet Jinja2-Variablen wie `{{ solr_host }}`
+- **Single Source of Truth**: `webapp/backend/backend-services.py`
+- Konfiguration via Umgebungsvariablen (lokal via `run.sh`, Cluster via systemd)
+- Keine Jinja2-Templates mehr für Backend-Code!
 
 ### Spark Konfiguration
 
@@ -112,8 +113,8 @@ docs/
 
 ### Backend ändern
 
-1. Template bearbeiten: `baremetal/05-ansible/templates/webapp-backend/app.py.j2`
-2. Lokale Kopie synchronisieren: `webapp/backend/app.py`
+1. Datei bearbeiten: `webapp/backend/backend-services.py`
+2. Lokal testen: `./run.sh` (setzt Umgebungsvariablen automatisch)
 3. Deployen: `ansible-playbook site.yml --tags webapp-backend -i inventory.yml`
 
 ### Frontend ändern

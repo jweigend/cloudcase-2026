@@ -70,13 +70,23 @@ const props = defineProps({
   items: { type: Array, default: () => [] },
   activeFilters: { type: Array, default: () => [] },
   formatter: { type: Function, default: null },
-  expanded: { type: Boolean, default: false }
+  expanded: { type: Boolean, default: false },
+  sortBy: { type: String, default: 'count' } // 'count' (default) oder 'value'
 })
 
 const emit = defineEmits(['toggle', 'update:expanded'])
 
-// Items nach Anzahl sortiert (absteigend)
+// Items sortiert - je nach sortBy prop
 const sortedItems = computed(() => {
+  if (props.sortBy === 'none') {
+    // Keine Sortierung - Reihenfolge beibehalten (für vorsortierte Items)
+    return props.items
+  }
+  if (props.sortBy === 'value') {
+    // Nach Wert aufsteigend sortieren (für Uhrzeiten)
+    return [...props.items].sort((a, b) => a.value - b.value)
+  }
+  // Default: Nach Anzahl absteigend
   return [...props.items].sort((a, b) => b.count - a.count)
 })
 

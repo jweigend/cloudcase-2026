@@ -63,13 +63,15 @@ import FacetPanel from './components/FacetPanel.vue'
 import StatsPanel from './components/StatsPanel.vue'
 import TopRoutesPanel from './components/TopRoutesPanel.vue'
 import { fetchFacets, fetchStats, fetchFareDistribution } from './api/solr.js'
+import { loadTaxiZones } from './data/taxiZones.js'
 
 // Facetten-Felder die wir anzeigen wollen
 const FACET_FIELDS = [
   'pickup_hour',
   'pickup_dayofweek', 
   'payment_type',
-  'PULocationID'
+  'PULocationID',
+  'DOLocationID'
 ]
 
 // State
@@ -175,8 +177,12 @@ watch(activeFilters, () => {
 }, { deep: true })
 
 // Initial laden
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  // Taxi Zones vom Backend laden (parallel mit Daten)
+  await Promise.all([
+    loadTaxiZones(),
+    loadData()
+  ])
 })
 
 // Hilfsfunktion: Zahl formatieren

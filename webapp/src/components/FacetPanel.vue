@@ -55,7 +55,7 @@
 
     <!-- Facetten -->
     <div v-else class="space-y-3">
-      <!-- Pickup Hour -->
+      <!-- Pickup Hour - nach Wert sortiert (00, 01, ... 23) -->
       <FacetGroup
         title="🕐 Uhrzeit"
         field="pickup_hour"
@@ -63,18 +63,20 @@
         :activeFilters="activeFilters"
         :formatter="formatHour"
         :expanded="expandedState.pickup_hour"
+        sortBy="value"
         @toggle="(v) => $emit('toggle-filter', 'pickup_hour', v)"
         @update:expanded="(v) => expandedState.pickup_hour = v"
       />
 
-      <!-- Day of Week -->
+      <!-- Day of Week - vorsortiert durch sortedWeekdays (Mo-So) -->
       <FacetGroup
         title="📅 Wochentag"
         field="pickup_dayofweek"
-        :items="facets.pickup_dayofweek || []"
+        :items="sortedWeekdays"
         :activeFilters="activeFilters"
         :formatter="formatDayOfWeek"
         :expanded="expandedState.pickup_dayofweek"
+        sortBy="none"
         @toggle="(v) => $emit('toggle-filter', 'pickup_dayofweek', v)"
         @update:expanded="(v) => expandedState.pickup_dayofweek = v"
       />
@@ -102,6 +104,18 @@
         @toggle="(v) => $emit('toggle-filter', 'PULocationID', v)"
         @update:expanded="(v) => expandedState.PULocationID = v"
       />
+
+      <!-- Dropoff Location (Top 10) -->
+      <FacetGroup
+        title="🏁 Ziel Zone (Top 10)"
+        field="DOLocationID"
+        :items="(facets.DOLocationID || []).slice(0, 10)"
+        :activeFilters="activeFilters"
+        :formatter="formatLocation"
+        :expanded="expandedState.DOLocationID"
+        @toggle="(v) => $emit('toggle-filter', 'DOLocationID', v)"
+        @update:expanded="(v) => expandedState.DOLocationID = v"
+      />
     </div>
   </div>
 </template>
@@ -124,7 +138,18 @@ const expandedState = reactive({
   pickup_hour: false,
   pickup_dayofweek: false,
   payment_type: false,
-  PULocationID: false
+  PULocationID: false,
+  DOLocationID: false
+})
+
+// Wochentage sortiert: Montag (2) bis Sonntag (1)
+// NYC Taxi Daten: 1=Sonntag, 2=Montag, ..., 7=Samstag
+const sortedWeekdays = computed(() => {
+  const days = props.facets.pickup_dayofweek || []
+  // Sortiere: Mo(2), Di(3), Mi(4), Do(5), Fr(6), Sa(7), So(1)
+  const order = [2, 3, 4, 5, 6, 7, 1]
+  // Number() weil Solr die Werte als Strings liefern kann
+  return [...days].sort((a, b) => order.indexOf(Number(a.value)) - order.indexOf(Number(b.value)))
 })
 
 // Range-Filter (aus Charts) extrahieren
