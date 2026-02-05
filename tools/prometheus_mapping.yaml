@@ -1,0 +1,1104 @@
+version: '1.0'
+description: Prometheus metric mapping rules
+target_structure:
+  dimensions:
+  - HOSTGROUP
+  - HOST
+  - METRICGROUP
+  - METRIC
+  - PROCESSGROUP
+  - PROCESS
+  - MEASUREMENT (set at import time with timestamp, not from Prometheus)
+rules:
+- pattern: ack_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: ack_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: add
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: add_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: approximate
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: approximate_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: auth
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: auth_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: avg
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: avg_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: bytes
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: bytes_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: close_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: close_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: cnxn
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: cnxn_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: commit_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: commit_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: concurrent_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: cpu
+  metric:
+    source: metric_name
+    remove_prefix: concurrent_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: connection_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: connection_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: dbinittime_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: dbinittime_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: dead_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: dead_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: diff
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: diff_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: digest
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: digest_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: election_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: election_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: ensemble_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: ensemble_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: ephemerals
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: ephemerals_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: follower_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: follower_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: fsynctime_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: fsynctime_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: global
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: global_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: go_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: gc
+  metric:
+    source: metric_name
+    remove_prefix: go_
+  processgroup: prometheus
+  process:
+    label: job
+- pattern: http_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: query
+  metric:
+    source: metric_name
+    remove_prefix: http_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: inflight_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: inflight_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: insecure
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: insecure_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: jvm_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: memory
+  metric:
+    source: metric_name
+    remove_prefix: jvm_
+  processgroup: jvm
+  process:
+    label: job
+- pattern: large
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: query
+  metric:
+    source: metric_name
+    remove_prefix: large_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: last_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: last_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: leader_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: leader_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: learner_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: learner_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: learners
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: learners_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: local_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: local_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: looking
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: looking_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: max_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: max_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: metrics_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: metrics_
+  processgroup: spark
+  process:
+    label: job
+- pattern: min_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: min_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: net_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: network
+  metric:
+    source: metric_name
+    remove_prefix: net_
+  processgroup: prometheus
+  process:
+    label: job
+- pattern: netty_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: memory
+  metric:
+    source: metric_name
+    remove_prefix: netty_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: node_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: node_
+  processgroup: node
+  process:
+    label: job
+- pattern: non_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: non_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: num
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: num_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: observer_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: observer_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: om_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: om_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: open
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: disk
+  metric:
+    source: metric_name
+    remove_prefix: open_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: outstanding_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: outstanding_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: packets_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: network
+  metric:
+    source: metric_name
+    remove_prefix: packets_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: pending_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: pending_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: prep_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: prep_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: process_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: cpu
+  metric:
+    source: metric_name
+    remove_prefix: process_
+  processgroup: jvm
+  process:
+    label: job
+- pattern: prometheus_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: io
+  metric:
+    source: metric_name
+    remove_prefix: prometheus_
+  processgroup: prometheus
+  process:
+    label: job
+- pattern: promhttp_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: http
+  metric:
+    source: metric_name
+    remove_prefix: promhttp_
+  processgroup: prometheus
+  process:
+    label: job
+- pattern: propagation_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: propagation_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: proposal_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: proposal_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: quit
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: quit_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: quorum_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: quorum_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: read_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: io
+  metric:
+    source: metric_name
+    remove_prefix: read_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: readlatency_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: readlatency_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: reads_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: reads_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: request_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: query
+  metric:
+    source: metric_name
+    remove_prefix: request_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: requests_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: query
+  metric:
+    source: metric_name
+    remove_prefix: requests_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: response_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: http
+  metric:
+    source: metric_name
+    remove_prefix: response_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: restore_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: restore_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: revalidate
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: revalidate_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: scrape_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: scrape_
+  processgroup: prometheus
+  process:
+    label: job
+- pattern: server_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: server_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: session_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: session_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: sessionless
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: connections
+  metric:
+    source: metric_name
+    remove_prefix: sessionless_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: skip
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: cpu
+  metric:
+    source: metric_name
+    remove_prefix: skip_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: snap
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: snap_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: snapshot_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: snapshot_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: snapshottime_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: snapshottime_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: socket_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: network
+  metric:
+    source: metric_name
+    remove_prefix: socket_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: solr_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: solr_
+  processgroup: solr
+  process:
+    label: job
+- pattern: stale_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: stale_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: startup_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: startup_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: sync_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: sync_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: synced_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: io
+  metric:
+    source: metric_name
+    remove_prefix: synced_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: throttled
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: throttled_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: time_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: memory
+  metric:
+    source: metric_name
+    remove_prefix: time_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: tls
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: tls_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: unavailable_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: unavailable_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: unrecoverable
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: unrecoverable_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: unsuccessful
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: unsuccessful_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: up
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: health
+  metric:
+    source: metric_name
+    remove_prefix: up_
+  processgroup: spark
+  process:
+    label: job
+- pattern: updatelatency_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: updatelatency_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: uptime
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: latency
+  metric:
+    source: metric_name
+    remove_prefix: uptime_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: watch_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: watch_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: write_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: cpu
+  metric:
+    source: metric_name
+    remove_prefix: write_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: zk_*
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: general
+  metric:
+    source: metric_name
+    remove_prefix: zk_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: znode
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: counters
+  metric:
+    source: metric_name
+    remove_prefix: znode_
+  processgroup: zookeeper
+  process:
+    label: job
+- pattern: zookeeper
+  hostgroup: Democluster
+  host:
+    label: instance
+    transform: extract_host
+  metricgroup: health
+  metric:
+    source: metric_name
+    remove_prefix: zookeeper_
+  processgroup: zookeeper
+  process:
+    label: job
