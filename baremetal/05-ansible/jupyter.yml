@@ -197,6 +197,26 @@
         force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
       tags: notebooks
 
+    - name: Deploy Prometheus Timeseries Analysis notebook
+      ansible.builtin.template:
+        src: templates/jupyter/06-prometheus-timeseries-analysis.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/06-prometheus-timeseries-analysis.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
+
+    - name: Deploy Software EKG Timeseries Analysis notebook
+      ansible.builtin.template:
+        src: templates/jupyter/07-software-ekg-timeseries-analysis.ipynb.j2
+        dest: "{{ jupyter_data }}/notebooks/07-software-ekg-timeseries-analysis.ipynb"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0644'
+        force: "{{ force_notebooks }}"  # Use -e "force=true" to overwrite
+      tags: notebooks
+
     - name: Create datasets directory
       ansible.builtin.file:
         path: "{{ jupyter_data }}/datasets"
