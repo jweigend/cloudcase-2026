@@ -13,12 +13,6 @@
           Backend offline
         </span>
         <span 
-          v-else-if="tripCount > 1000000" 
-          class="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full"
-        >
-          {{ formatNumber(tripCount) }} Fahrten - zu viele für Spark
-        </span>
-        <span 
           v-else-if="loading" 
           class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full animate-pulse"
         >
@@ -96,13 +90,6 @@
       </div>
     </div>
 
-    <!-- Leerer Zustand - zu viele Daten -->
-    <div v-else-if="tripCount > 1000000" class="text-center py-8 text-yellow-600">
-      <div class="text-4xl mb-2">📊</div>
-      <div class="font-medium">Zu viele Daten für Spark-Analyse</div>
-      <div class="text-sm text-yellow-500 mt-1">Setze Filter um unter 1M Fahrten zu kommen</div>
-    </div>
-
     <!-- Leerer Zustand - keine Routen gefunden -->
     <div v-else-if="hasCalculated && routes.length === 0" class="text-center py-8 text-gray-500">
       <div class="text-4xl mb-2">🤔</div>
@@ -157,7 +144,7 @@ let debounceTimer = null
 
 // Computed
 const canAnalyze = computed(() => {
-  return backendOnline.value && tripCount.value > 0 && tripCount.value <= 1000000
+  return backendOnline.value && tripCount.value > 0
 })
 
 // Route auswählen und als Filter emittieren
