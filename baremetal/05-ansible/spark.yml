@@ -227,8 +227,8 @@
         content: |
           [Unit]
           Description=Apache Spark Worker
-          After=network.target spark-master.service
-          Wants=spark-master.service
+          After=network-online.target spark-master.service
+          Wants=network-online.target spark-master.service
           
           [Service]
           Type=forking
@@ -236,7 +236,7 @@
           Environment="JAVA_HOME={{ java_home }}"
           Environment="SPARK_HOME={{ spark_home }}"
           Environment="SPARK_WORKER_WEBUI_PORT=8082"
-          ExecStartPre=/bin/sleep 5
+          ExecStartPre=/bin/sleep 10
           ExecStart={{ spark_home }}/sbin/start-worker.sh spark://{{ spark_master_host }}:7077
           ExecStop={{ spark_home }}/sbin/stop-worker.sh
           Restart=on-failure
