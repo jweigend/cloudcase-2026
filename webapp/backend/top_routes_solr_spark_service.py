@@ -54,16 +54,26 @@ _cache_info = None
 
 
 def get_spark():
-    """Lazy Spark Session Initialisierung."""
+    """Lazy Spark Session Initialisierung mit automatischer Recovery."""
     global _spark, _spark_error, _cached_trips_rdd, _cache_info
     
     if _spark is not None:
         try:
-            _ = _spark.sparkContext.applicationId
+            # Prüfe ob SparkContext noch aktiv ist
+            sc = _spark.sparkContext
+            if sc._jsc is None or sc._jsc.sc().isStopped():
+                raise Exception("SparkContext wurde gestoppt")
+            # Aktiver Test: Hole Application ID
+            _ = sc.applicationId
             _spark_error = None
             return _spark, None
         except Exception as e:
-            logger.warning(f"Spark Session war gestoppt: {e}")
+            logger.warning(f"Spark Session nicht mehr gültig: {e}")
+            # Versuche Session sauber zu beenden
+            try:
+                _spark.stop()
+            except:
+                pass
             _spark = None
             _cached_trips_rdd = None
             _cache_info = None
@@ -171,18 +181,43 @@ def get_or_load_trips_rdd(spark):
         
         shard_rdd = spark.sparkContext.parallelize(shard_info, len(shard_info))
         
+        # Hilfsdaten für schnelle Timestamp-Berechnung (außerhalb der Schleife)
+        days_before_month = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+        
         def load_shard_to_tuples(shard):
             """
             Lädt Shard und konvertiert SOFORT zu Tupeln.
-            Kein Dict-Zwischenschritt, direkt kompakte Tupel.
+            Optimiert: String-Slicing statt datetime.strptime() (5x schneller)
             """
             import requests
-            from datetime import datetime
             
             node = shard["node"]
             core = shard["core"]
             port = port_bc.value
             fields = fields_bc.value
+            
+            def parse_ts(s):
+                """Parse ISO timestamp schnell via String-Slicing.
+                Format: 2024-01-15T14:32:00Z
+                Returns: (total_seconds, hour, dow)
+                """
+                year = int(s[0:4])
+                month = int(s[5:7])
+                day = int(s[8:10])
+                hour = int(s[11:13])
+                minute = int(s[14:16])
+                second = int(s[17:19])
+                
+                # Tage seit 1970 (vereinfacht, für Duration-Diff ausreichend)
+                y = year - 1970
+                days = y * 365 + (y + 1) // 4
+                days += days_before_month[month - 1] + day - 1
+                if month > 2 and year % 4 == 0:
+                    days += 1
+                
+                total_sec = days * 86400 + hour * 3600 + minute * 60 + second
+                dow = (days + 3) % 7  # 1970-01-01 = Donnerstag
+                return total_sec, hour, dow
             
             export_url = f"http://{node}:{port}/solr/{core}/export"
             params = {
@@ -206,13 +241,15 @@ def get_or_load_trips_rdd(spark):
                     doc_count += 1
                     
                     try:
-                        # Parse timestamps
                         pickup_str = doc.get("tpep_pickup_datetime", "")
                         dropoff_str = doc.get("tpep_dropoff_datetime", "")
                         
-                        pickup = datetime.strptime(pickup_str, "%Y-%m-%dT%H:%M:%SZ")
-                        dropoff = datetime.strptime(dropoff_str, "%Y-%m-%dT%H:%M:%SZ")
-                        duration_min = (dropoff - pickup).total_seconds() / 60.0
+                        if len(pickup_str) < 19 or len(dropoff_str) < 19:
+                            continue
+                        
+                        pu_sec, pu_hour, pu_dow = parse_ts(pickup_str)
+                        do_sec, _, _ = parse_ts(dropoff_str)
+                        duration_min = (do_sec - pu_sec) / 60.0
                         
                         # Validierung
                         if duration_min <= 1 or duration_min >= 120:
@@ -236,12 +273,12 @@ def get_or_load_trips_rdd(spark):
                             float(fare),
                             float(distance),
                             duration_min,
-                            pickup.hour,
-                            pickup.weekday()
+                            pu_hour,
+                            pu_dow
                         ))
                         valid_count += 1
                         
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError, IndexError):
                         continue
                 
                 print(f"Worker {node}/{core}: {doc_count} docs → {valid_count} valid trips")
@@ -252,10 +289,8 @@ def get_or_load_trips_rdd(spark):
             return trips
         
         # Parallel laden - jeder Worker holt seinen Shard
+        # Kein repartition nötig: Daten sind schon auf 16 Shards verteilt
         trips_rdd = shard_rdd.flatMap(load_shard_to_tuples)
-        
-        # WICHTIG: Repartition für bessere Verteilung bei Queries
-        trips_rdd = trips_rdd.repartition(16)
         
         # Cache im Cluster-Speicher
         trips_rdd.persist(StorageLevel.MEMORY_AND_DISK)
@@ -279,6 +314,9 @@ def get_or_load_trips_rdd(spark):
         
     except Exception as e:
         logger.exception("Fehler beim Laden")
+        # Sicherstellen dass kein inkonsistenter State bleibt
+        _cached_trips_rdd = None
+        _cache_info = None
         return None, False, str(e)
 
 
@@ -333,6 +371,7 @@ def calculate_top_routes(filters=None, limit=5):
     Erster Aufruf: WARMUP (~90s) - lädt alle Trips von Solr
     Danach: Blitzschnell (~2s) - nur noch RDD-Operationen im RAM
     """
+    global _spark, _cached_trips_rdd, _cache_info
     start_time = time.time()
     
     spark, spark_error = get_spark()
@@ -377,9 +416,10 @@ def calculate_top_routes(filters=None, limit=5):
         def merge_stats(a, b):
             return (a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3])
         
+        # numPartitions=16 begrenzt Parallelität (Cluster hat 24 Cores, 48 wäre Overhead)
         route_stats_rdd = filtered_rdd \
             .map(to_route_stats) \
-            .reduceByKey(merge_stats)
+            .reduceByKey(merge_stats, numPartitions=16)
         
         # Score berechnen
         def calc_score(item):
@@ -432,10 +472,24 @@ def calculate_top_routes(filters=None, limit=5):
         
     except Exception as e:
         logger.exception("Fehler bei Top-Routes Berechnung")
+        # Bei Spark-Fehlern (z.B. Job extern gekillt): Session und Cache invalidieren
+        # damit beim nächsten Request alles neu aufgebaut wird
+        error_str = str(e).lower()
+        if any(keyword in error_str for keyword in ['spark', 'rdd', 'stage', 'task', 'executor', 'job', 'cancelled']):
+            logger.warning("Spark-Fehler erkannt - invalidiere Session und Cache")
+            try:
+                if _spark:
+                    _spark.stop()
+            except:
+                pass
+            _spark = None
+            _cached_trips_rdd = None
+            _cache_info = None
         return {
             "error": str(e),
             "routes": [],
-            "total_trips": 0
+            "total_trips": 0,
+            "message": "Fehler bei der Berechnung. Bitte erneut versuchen."
         }
 
 

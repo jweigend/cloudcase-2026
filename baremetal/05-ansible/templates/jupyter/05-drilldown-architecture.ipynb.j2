@@ -104,9 +104,10 @@
       "metadata": {},
       "outputs": [],
       "source": [
-        "def create_collection_with_schema(name, num_shards=4, replication_factor=1):\n",
+        "def create_collection_with_schema(name, num_shards=16, replication_factor=1):\n",
         "    \"\"\"\n",
         "    Erstellt eine Solr Collection mit optimiertem Schema für Drill-Down.\n",
+        "    16 Shards = 4 pro Node für optimale Parallelität beim Laden.\n",
         "    \"\"\"\n",
         "    base_url = f'http://{SOLR_HOST}:{SOLR_PORT}/solr'\n",
         "    \n",

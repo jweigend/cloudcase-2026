@@ -135,7 +135,7 @@ status:
 	done
 	@echo ""
 	@echo "--- Spark Workers ---"
-	@workers=$$(curl -s --max-time 2 http://node0:8081/ 2>/dev/null | grep -c "ALIVE" || echo "0"); \
+	@workers=$$(curl -s --max-time 2 http://node0.cloud.local:8081/json/ 2>/dev/null | grep -oP '"aliveworkers"\s*:\s*\K\d+' || echo "0"); \
 	echo "Aktive Workers: $$workers"
 	@echo ""
 	@echo "--- Prometheus ---"
