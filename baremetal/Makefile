@@ -112,7 +112,7 @@ jupyter:
 
 smoke-tests:
 	@echo "=== Smoke Tests ausführen ==="
-	cd 06-smoke-tests && bash smoke-tests.sh
+	cd 09-smoke-tests && bash smoke-tests.sh
 
 collection:
 	@echo "=== Solr Demo-Collection erstellen ==="

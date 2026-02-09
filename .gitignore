@@ -18,9 +18,25 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
 # Node.js / Webapp
 webapp/node_modules/
 webapp/dist/
 webapp/.vite/
-webapp/backend/venv/
-webapp/backend/__pycache__/
+
+# Office Lock-Dateien
+.~lock.*#
+
+# Tools Output (generierte CSV-Dateien)
+tools/*.csv
+tools/java/

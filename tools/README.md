@@ -1,128 +1,112 @@
-# Prometheus Metric Mapper Tool
+# Prometheus Tools
 
-Maps Prometheus metrics to a structured dimensional model for data warehousing/analytics.
+Tools für die Analyse und Transformation von Prometheus-Metriken.
 
-## Target Structure
+## 1. Prometheus Metrics to CSV Exporter
 
-Each metric is mapped to these dimensions:
+**Script:** `prometheus_metrics_to_csv.py`
 
-| Dimension | Description | Example |
-|-----------|-------------|---------|
-| **HOSTGROUP** | Cluster/Environment name | `Democluster` |
-| **HOST** | Individual node | `node0` |
-| **METRICGROUP** | Category of metrics | `jvm`, `node`, `spark` |
-| **METRIC** | Specific metric name | `heap_memory_used` |
-| **PROCESSGROUP** | Application type | `zookeeper`, `spark` |
-| **PROCESS** | Process identifier | `java`, `master` |
-| **MEASUREMENT** | Role/Instance type | `master`, `worker` |
+Exportiert alle Prometheus-Metriken als filterbare CSV-Matrix für Analyse in Excel/LibreOffice.
 
-## Usage
+### Features
+
+- **Vollständige Metrik-Extraktion**: Alle Zeitreihen mit allen Labels
+- **Aggregierte Darstellung**: Zeigt Label-Kardinalität und Beispielwerte
+- **Filterbare Matrix**: Eine Zeile pro Metrik+Label Kombination
+
+### Usage
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Standard (Cluster Prometheus auf node0)
+python prometheus_metrics_to_csv.py
 
-# Run against cluster (default URL: http://node0.cloud.local:9090)
-python prometheus_mapper.py
+# Lokaler Prometheus
+python prometheus_metrics_to_csv.py --url http://localhost:9090
 
-# Custom Prometheus URL
-python prometheus_mapper.py --url http://localhost:9090
-
-# Specify output file
-python prometheus_mapper.py --output my_mapping.yaml
-
-# Continue from existing rules (learned patterns are preserved)
-python prometheus_mapper.py --rules prometheus_mapping.yaml
+# Eigener Dateiname
+python prometheus_metrics_to_csv.py --output meine_metriken.csv
 ```
 
-## Interactive Mode
+### Output-Spalten
 
-The tool groups metrics by prefix and asks you to create mapping rules:
+| Spalte | Beschreibung |
+|--------|--------------|
+| `metric_name` | Prometheus Metrikname |
+| `_type` | Metriktyp (counter, gauge, histogram) |
+| `job` | Job-Label (Process Group) |
+| `instance` | Instance-Label (Process) |
+| `label` | Name des Labels |
+| `count` | Anzahl unterschiedlicher Werte |
+| `values` | Beispielwerte (max 2) + ... |
 
-1. **Wildcard rules**: Create one rule for many similar metrics (e.g., `node_*`)
-2. **Individual rules**: Map specific metrics one by one
-3. **Skip**: Ignore metric groups you don't need
+### Beispiel-Output
 
-### Mapping Sources
-
-For each dimension, you can specify:
-
-- **constant**: Fixed value (e.g., `Democluster`)
-- **label**: Extract from Prometheus label (e.g., `instance`, `job`)
-- **substring**: Part of the metric name
-- **regex**: Pattern matching on metric name
-- **concat**: Combine multiple sources
-- **transform**: Apply transformation (e.g., `extract_host` removes port from `node0:9100`)
-
-## Output Format (YAML)
-
-```yaml
-version: '1.0'
-description: Prometheus metric mapping rules
-target_structure:
-  dimensions:
-    - HOSTGROUP
-    - HOST
-    - METRICGROUP
-    - METRIC
-    - PROCESSGROUP
-    - PROCESS
-    - MEASUREMENT
-
-rules:
-  - pattern: node_*
-    hostgroup: Democluster
-    host:
-      label: instance
-      transform: extract_host
-    metricgroup: node
-    metric:
-      source: metric_name
-      remove_prefix: node_
-    processgroup: system
-    process:
-      label: job
-    measurement: null
-
-  - pattern: jvm_*
-    label_conditions:
-      job: spark-master
-    hostgroup: Democluster
-    host:
-      label: instance
-      transform: extract_host
-    metricgroup: jvm
-    metric:
-      source: metric_name
-      remove_prefix: jvm_
-    processgroup: spark
-    process: java
-    measurement: master
+```csv
+metric_name,_type,job,instance,label,count,values
+node_cpu_seconds_total,counter,node,"node0:9100, node1:9100, ...",cpu,8,0, 1, ...
+node_cpu_seconds_total,counter,node,"node0:9100, node1:9100, ...",mode,8,idle, iowait, ...
+jvm_memory_bytes_used,gauge,"solr, spark-master, ...","node0:9405, node1:9404, ...",area,2,heap, nonheap
 ```
 
-## Wildcards
+---
 
-The `pattern` field supports `*` wildcards:
+## 2. Prometheus to Dimensional Model Transformer
 
-- `node_*` - All metrics starting with `node_`
-- `*_total` - All counter metrics
-- `jvm_memory_*` - Specific subset
+**Script:** `prometheus_to_dimensional.py`
 
-## Label Conditions
+Transformiert Prometheus-Metriken automatisch in ein fixes dimensionales Schema für Data Warehousing.
 
-Filter rules by label values:
+### Target Structure
 
-```yaml
-- pattern: jvm_*
-  label_conditions:
-    job: spark-master
-  measurement: master
+Jede Metrik wird auf 6 Dimensionen abgebildet:
 
-- pattern: jvm_*
-  label_conditions:
-    job: spark-worker
-  measurement: worker
+| Dimension | Quelle | Beispiel |
+|-----------|--------|----------|
+| **ProcessGroup** | `job` Label | `solr`, `spark-master`, `node` |
+| **Process** | `instance` Label | `node0.cloud.local:9405` |
+| **HostGroup** | Konstante | `cluster` |
+| **Host** | Erster Teil von `instance` | `node0` |
+| **MetricGroup** | `job` + optionale Erweiterung | `solr_metrics_core` |
+| **Metric** | Metrikname + Label-Suffix | `query_errors_total_type_parse` |
+
+### Intelligente MetricGroup-Erweiterung
+
+Bei Metriken mit vielen Label-Varianten (>threshold) wird automatisch ein Präfix vom Metriknamen in die MetricGroup verschoben:
+
 ```
+Beispiel: solr_metrics_core_query_errors_total (200 Varianten)
+→ MetricGroup: solr_metrics_core
+→ Metric: query_errors_total
+```
+
+### Usage
+
+```bash
+# Standard (threshold=100)
+python prometheus_to_dimensional.py
+
+# Eigener Threshold
+python prometheus_to_dimensional.py --threshold 50
+
+# Eigene URL und Output
+python prometheus_to_dimensional.py --url http://localhost:9090 --output my_model.csv
+```
+
+### Output-Format (CSV)
+
+```csv
+ProcessGroup,Process,HostGroup,Host,MetricGroup,Metric
+node,node0.cloud.local:9100,cluster,node0,node,cpu_seconds_total_cpu_0_mode_idle
+node,node0.cloud.local:9100,cluster,node0,node,cpu_seconds_total_cpu_0_mode_system
+solr,node0.cloud.local:9405,cluster,node0,solr_metrics_core,query_errors_total_type_parse
+spark-master,node0.cloud.local:8080,cluster,node0,spark,driver_jvm_heap_used
+```
+
+---
+
+## Konzept-Dokumentation
+
+Siehe [docs/CONCEPT-prometheus-mapping.md](../docs/CONCEPT-prometheus-mapping.md) für Details zur Architektur und Design-Entscheidungen.
 
 ## Known Prefixes (Cloudkoffer)
 
