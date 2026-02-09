@@ -136,3 +136,54 @@ Filter rules by label values:
 | `zk_` | ZooKeeper | Connections, Latency |
 | `go_` | Go runtime | Prometheus/Grafana internals |
 | `promhttp_` | Prometheus | Scrape metrics |
+
+---
+
+# Prometheus Metrics to CSV Exporter
+
+Exportiert alle Prometheus-Metriken als filterbare CSV-Matrix.
+
+## Features
+
+- **Vollständige Metrik-Extraktion**: Alle Zeitreihen mit allen Labels
+- **Automatische Kategorisierung**: Prozess, Kategorie, Host werden abgeleitet
+- **Filterbare Matrix**: Jede Zeile = eine Metrik-Instanz, jede Spalte = ein Label
+
+## Usage
+
+```bash
+# Standard (Cluster Prometheus auf node0)
+python prometheus_metrics_to_csv.py
+
+# Lokaler Prometheus
+python prometheus_metrics_to_csv.py --url http://localhost:9090
+
+# Eigener Dateiname
+python prometheus_metrics_to_csv.py --output meine_metriken.csv
+```
+
+## Output-Spalten
+
+| Spalte | Beschreibung |
+|--------|--------------|
+| `metric_name` | Prometheus Metrikname |
+| `_type` | Prometheus Metriktyp (counter, gauge, histogram) |
+| `label` | Name des Labels |
+| `count` | Anzahl unterschiedlicher Werte |
+| `values` | 2 Beispielwerte + ... |
+
+## Beispiel-Output
+
+```csv
+metric_name,_type,label,count,values
+node_cpu_seconds_total,counter,job,1,node
+node_cpu_seconds_total,counter,instance,5,node0:9100, node1:9100, ...
+node_cpu_seconds_total,counter,cpu,8,0, 1, ...
+node_cpu_seconds_total,counter,mode,8,idle, iowait, ...
+jvm_memory_bytes_used,gauge,job,3,solr, spark-master, ...
+jvm_memory_bytes_used,gauge,instance,5,node0:9405, node1:9404, ...
+jvm_memory_bytes_used,gauge,area,2,heap, nonheap
+```
+
+**Eine Zeile pro Metrik+Label Kombination** - zeigt Kardinalität und Beispielwerte.
+Hilfreich um zu verstehen welche Labels Dimensionen (viele Werte) vs. Metrik-Varianten (wenige, beschreibende Werte) sind.

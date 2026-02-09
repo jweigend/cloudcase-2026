@@ -96,12 +96,16 @@
         content: |
           [Unit]
           Description=Apache Solr
-          After=network.target zookeeper.service
+          After=network.target
+          # Note: No Requires=zookeeper.service - node4 has no local ZooKeeper!
+          # The ExecStartPre below handles waiting for remote ZooKeeper quorum.
           
           [Service]
           Type=forking
           User={{ solr_user }}
           Environment="SOLR_INCLUDE={{ solr_home }}/bin/solr.in.sh"
+          # Wait for ZooKeeper quorum to be ready (check all 3 ZK nodes)
+          ExecStartPre=/bin/bash -c 'for i in {1..30}; do echo ruok | nc -w2 node1.{{ domain }} 2181 | grep -q imok && echo ruok | nc -w2 node2.{{ domain }} 2181 | grep -q imok && echo ruok | nc -w2 node3.{{ domain }} 2181 | grep -q imok && exit 0; echo "Waiting for ZK quorum... ($i/30)"; sleep 2; done; echo "ZooKeeper not ready after 60s"; exit 1'
           ExecStart={{ solr_home }}/bin/solr start
           ExecStop={{ solr_home }}/bin/solr stop
           Restart=on-failure
