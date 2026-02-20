@@ -94,50 +94,46 @@ export async function fetchFacets(filters = [], facetFields = []) {
 }
 
 /**
- * Holt Statistiken für Balkendiagramme via Streaming Expression
+ * Holt Statistiken für Balkendiagramme via JSON Facet API
  * @param {string[]} filters - Array von Filter-Queries
  * @param {string} groupBy - Feld zum Gruppieren
  * @returns {Promise<Array>}
  */
 export async function fetchStats(filters = [], groupBy = 'pickup_hour') {
-  // Filter gruppieren (gleiches Feld = OR, verschiedene Felder = AND)
-  const groupedFilters = groupFiltersByField(filters)
-  
-  // Query bauen und für Streaming Expression escapen
-  let q = '*:*'
-  if (groupedFilters.length > 0) {
-    q = groupedFilters.map(({ query }) => `(${query})`).join(' AND ')
-    // Escape für Streaming Expression (doppelte Anführungszeichen durch einfache ersetzen)
-    q = q.replace(/"/g, '\\"')
-  }
-
-  const expr = `
-    rollup(
-      search(nyc-taxi-raw,
-        q="${q}",
-        fl="${groupBy},total_amount",
-        sort="${groupBy} asc",
-        qt="/export"
-      ),
-      over="${groupBy}",
-      sum(total_amount),
-      avg(total_amount),
-      count(*)
-    )
-  `.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
-
-  const params = new URLSearchParams({ expr })
-  
-  const response = await fetch(`${SOLR_BASE}/stream?${params}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  const params = new URLSearchParams({
+    q: '*:*',
+    rows: 0,
+    wt: 'json',
+    'json.facet': JSON.stringify({
+      stats: {
+        type: 'terms',
+        field: groupBy,
+        limit: 100,
+        sort: { index: 'asc' },
+        facet: {
+          'sum(total_amount)': 'sum(total_amount)',
+          'avg(total_amount)': 'avg(total_amount)'
+        }
+      }
+    })
   })
-  
+
+  // Filter gruppieren (gleiches Feld = OR)
+  const groupedFilters = groupFiltersByField(filters)
+  groupedFilters.forEach(({ query }) => {
+    params.append('fq', query)
+  })
+
+  const response = await fetch(`${SOLR_BASE}/select?${params}`)
   const data = await response.json()
-  
-  // Stream-Ergebnis parsen (entferne EOF-Marker)
-  const docs = data['result-set']?.docs || []
-  return docs.filter(doc => !('EOF' in doc))
+
+  const buckets = data.facets?.stats?.buckets || []
+  return buckets.map(b => ({
+    [groupBy]: b.val,
+    'sum(total_amount)': b['sum(total_amount)'],
+    'avg(total_amount)': b['avg(total_amount)'],
+    'count(*)': b.count
+  }))
 }
 
 /**
