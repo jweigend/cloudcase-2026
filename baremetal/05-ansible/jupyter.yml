@@ -66,6 +66,7 @@
           - numpy
           - matplotlib
           - pysolr
+          - kazoo
           - requests
         virtualenv: "{{ jupyter_home }}/venv"
         state: present
@@ -81,14 +82,14 @@
 
     - name: Download Spark
       ansible.builtin.get_url:
-        url: "https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop3.tgz"
-        dest: "/tmp/spark-{{ spark_version }}.tgz"
+        url: "https://archive.apache.org/dist/spark/spark-{{ spark_version }}/{{ spark_archive }}.tgz"
+        dest: "/tmp/{{ spark_archive }}.tgz"
         mode: '0644'
       when: not spark_installed.stat.exists
 
     - name: Extract Spark
       ansible.builtin.unarchive:
-        src: "/tmp/spark-{{ spark_version }}.tgz"
+        src: "/tmp/{{ spark_archive }}.tgz"
         dest: "{{ spark_home }}"
         remote_src: yes
         extra_opts: ['--strip-components=1']

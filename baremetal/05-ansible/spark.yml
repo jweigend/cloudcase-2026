@@ -54,7 +54,7 @@
 
     - name: Download Spark
       get_url:
-        url: "https://dlcdn.apache.org/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop3-scala2.13.tgz"
+        url: "https://dlcdn.apache.org/spark/spark-{{ spark_version }}/{{ spark_archive }}.tgz"
         dest: /tmp/spark.tgz
         mode: '0644'
         timeout: 300
@@ -69,7 +69,7 @@
 
     - name: Install Spark
       shell: |
-        cp -r /tmp/spark-{{ spark_version }}-bin-hadoop3-scala2.13/* {{ spark_home }}/
+        cp -r /tmp/{{ spark_archive }}/* {{ spark_home }}/
         chown -R {{ spark_user }}:{{ spark_user }} {{ spark_home }}
       when: not spark_installed.stat.exists
 
@@ -79,7 +79,7 @@
         state: absent
       loop:
         - /tmp/spark.tgz
-        - /tmp/spark-{{ spark_version }}-bin-hadoop3-scala2.13
+        - /tmp/{{ spark_archive }}
       when: not spark_installed.stat.exists
 
     - name: Configure spark-env.sh

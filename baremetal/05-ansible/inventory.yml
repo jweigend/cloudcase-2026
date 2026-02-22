@@ -21,6 +21,8 @@ all:
     zookeeper_version: "3.9.4"
     solr_version: "9.10.1"
     spark_version: "3.5.8"
+    spark_scala_version: "2.13"
+    spark_archive: "spark-{{ spark_version }}-bin-hadoop3-scala{{ spark_scala_version }}"
     prometheus_version: "2.54.1"
     grafana_version: "11.4.0"
     node_exporter_version: "1.8.2"
