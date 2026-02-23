@@ -289,7 +289,7 @@ def get_or_load_trips_rdd(spark):
             return trips
         
         # Parallel laden - jeder Worker holt seinen Shard
-        # Kein repartition nötig: Daten sind schon auf 16 Shards verteilt
+        # Kein repartition nötig: Daten sind schon auf Shards verteilt
         trips_rdd = shard_rdd.flatMap(load_shard_to_tuples)
         
         # Cache im Cluster-Speicher

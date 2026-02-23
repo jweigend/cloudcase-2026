@@ -12,8 +12,6 @@
     spark_user: cloudadmin
     spark_master_host: node0.cloud.local
     spark_master_port: 7077
-    spark_worker_memory: 24g
-    spark_worker_cores: 6
     
   tasks:
     - name: Install Python packages for PySpark (Data Locality)
@@ -124,21 +122,21 @@
           # Cluster Connection
           spark.master                     spark://{{ spark_master_host }}:{{ spark_master_port }}
           
-          # Executor Configuration (optimiert für 4 Worker mit je 6 Cores, 24 GB)
-          # 3 Executors pro Worker = 12 Executors total
-          # Jeder Executor: 6 GB RAM, 2 Cores
+          # Executor Configuration
+          # 5 Nodes je 16 GB, 4 Cores (2 Executors je 6 GB, 2 Cores)
+          # Gesamt: 10 Executors, 20 Cores
           spark.executor.memory            6g
           spark.executor.cores             2
           spark.executor.memoryOverhead    1g
-          
+
           # Driver Configuration
           spark.driver.memory              4g
           spark.driver.cores               2
           spark.driver.maxResultSize       2g
-          
-          # Default Parallelism (2-3x Cores = 48-72)
-          spark.default.parallelism        48
-          spark.sql.shuffle.partitions     48
+
+          # Default Parallelism (2-3x Cores = 30-40)
+          spark.default.parallelism        30
+          spark.sql.shuffle.partitions     30
           
           # Event Logging (für Spark History Server)
           spark.eventLog.enabled           true

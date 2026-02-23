@@ -3,7 +3,7 @@
 # Verwendung: make [target]
 #
 
-.PHONY: help iso configs usb ansible zookeeper solr spark monitoring jupyter smoke-tests collection clean shutdown reboot
+.PHONY: help iso configs usb ansible zookeeper solr spark monitoring jupyter smoke-tests run-notebooks collection clean shutdown reboot
 
 # Ansible Pfad
 ANSIBLE := ~/.local/share/pipx/venvs/ansible/bin/ansible-playbook
@@ -23,6 +23,7 @@ help:
 	@echo "║  make usb DEVICE=/dev/sdX   ISO auf USB-Stick schreiben                  ║"
 	@echo "║  make ansible          Kompletten Big Data Stack installieren            ║"
 	@echo "║  make smoke-tests      Cluster-Tests ausführen                           ║"
+	@echo "║  make run-notebooks    Alle Jupyter Notebooks als Scripts ausfuehren     ║"
 	@echo "║  make collection       Solr Demo-Collection erstellen                    ║"
 	@echo "║                                                                          ║"
 	@echo "║  EINZELNE KOMPONENTEN:                                                   ║"
@@ -113,6 +114,10 @@ jupyter:
 smoke-tests:
 	@echo "=== Smoke Tests ausführen ==="
 	cd 09-smoke-tests && bash smoke-tests.sh
+
+run-notebooks:
+	@echo "=== Notebook Integration Tests ==="
+	ssh cloudadmin@node0 /data/jupyter/scripts/run-notebooks.sh
 
 collection:
 	@echo "=== Solr Demo-Collection erstellen ==="

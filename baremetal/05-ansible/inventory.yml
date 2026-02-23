@@ -65,9 +65,14 @@ all:
         node0:
           ansible_host: 192.168.1.100
     
-    # Spark Workers
+    # Spark Workers (je 50% der Node-Ressourcen)
     spark_workers:
+      vars:
+        spark_worker_memory: 16g
+        spark_worker_cores: 4
       hosts:
+        node0:
+          ansible_host: 192.168.1.100
         node1:
           ansible_host: 192.168.1.101
         node2:

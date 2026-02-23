@@ -227,6 +227,38 @@
         mode: '0755'
 
     # ============================================================
+    # Notebook Scripts (fuer CLI-Ausfuehrung)
+    # ============================================================
+    - name: Create scripts directory
+      ansible.builtin.file:
+        path: "{{ jupyter_data }}/scripts"
+        state: directory
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0755'
+
+    - name: Convert notebooks to Python scripts
+      ansible.builtin.shell: |
+        {{ jupyter_home }}/venv/bin/jupyter nbconvert --to script \
+          --output-dir={{ jupyter_data }}/scripts \
+          {{ jupyter_data }}/notebooks/*.ipynb
+        # nbconvert erzeugt manchmal .txt statt .py
+        for f in {{ jupyter_data }}/scripts/*.txt; do
+          [ -f "$f" ] && mv "$f" "${f%.txt}.py"
+        done
+      become_user: "{{ jupyter_user }}"
+      changed_when: true
+      tags: notebooks
+
+    - name: Deploy notebook runner script
+      ansible.builtin.template:
+        src: templates/jupyter/run-notebooks.sh.j2
+        dest: "{{ jupyter_data }}/scripts/run-notebooks.sh"
+        owner: "{{ jupyter_user }}"
+        group: "{{ jupyter_user }}"
+        mode: '0755'
+
+    # ============================================================
     # Healthcheck
     # ============================================================
     - name: Wait for JupyterLab to be ready
