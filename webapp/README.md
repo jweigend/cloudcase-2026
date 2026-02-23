@@ -37,7 +37,7 @@ Interaktive Drill-Down Webapp zur Exploration von NYC Taxi-Daten mit Solr Facett
 - **Range-Filter**: Fahrpreis-Bereiche als `[10 TO 20]` Solr-Syntax
 
 ### Spark Analytics (Top-Routes, ~90s)
-- **Paralleles Shard-Loading**: Jeder Spark Executor lädt von seinem lokalen Shard
+- **Paralleler Shard-Zugriff**: Jeder Spark Executor lädt direkt von seinem zugewiesenen Shard per Hostname
 - **Lukrativitäts-Score**: Kombiniert Umsatz, Fahrtdauer und Fahrpreis/Minute
 - **Konfigurierbar**: Top 5/10/20 Routen per UI wählbar
 
@@ -166,24 +166,25 @@ webapp/
 | Operation | Latenz | Datenfluss |
 |-----------|--------|------------|
 | Facetten-Query | <50ms | Browser → nginx → Solr |
-| Streaming Stats | 100-500ms | Browser → nginx → Solr |
-| Top-Routes (5M Docs) | ~90s | Backend → Spark → 4 Shards parallel |
+| JSON Facet Stats | <100ms | Browser → nginx → Solr |
+| Top-Routes (6M Docs) | ~90s | Backend → Spark → 16 Shards parallel |
 
-## Paralleles Shard-Loading (Data Locality)
+## Paralleler Shard-Zugriff
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Jeder Executor → Lokaler Shard via /export Handler             │
+│  Jeder Executor → Direkt zum Shard per Hostname via /export     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. Backend holt Shard→Node Mapping via CLUSTERSTATUS API      │
 │                                                                 │
-│  2. Spark parallelisiert Shards als RDD:                       │
+│  2. Spark parallelisiert 16 Shards als RDD (4 Shards/Node):   │
 │     Executor 1 ──► node1:8983/solr/core_shard1/export          │
-│     Executor 2 ──► node2:8983/solr/core_shard2/export          │
-│     Executor 3 ──► node3:8983/solr/core_shard3/export          │
-│     Executor 4 ──► node4:8983/solr/core_shard4/export          │
+│     Executor 2 ──► node2:8983/solr/core_shard5/export          │
+│     Executor 3 ──► node3:8983/solr/core_shard9/export          │
+│     Executor 4 ──► node4:8983/solr/core_shard13/export         │
+│     ...          (16 Shards parallel über 4 Nodes)              │
 │                                                                 │
-│  Ergebnis: 4x paralleler I/O, kein Single-Node-Bottleneck!     │
+│  Ergebnis: 16x paralleler I/O, kein Single-Node-Bottleneck!    │
 └─────────────────────────────────────────────────────────────────┘
 ```

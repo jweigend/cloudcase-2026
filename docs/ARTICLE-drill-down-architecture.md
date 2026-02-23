@@ -74,8 +74,8 @@ Die Grundidee ist einfach: Nutze das beste Werkzeug für jeden Schritt.
 │   │                     ════════════════                             │  │
 │   │                                                                  │  │
 │   │    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │  │
-│   │    │ Invertierter│  │  Facetten   │  │  Streaming  │             │  │
-│   │    │    Index    │  │   Engine    │  │ Expressions │             │  │
+│   │    │ Invertierter│  │  Facetten   │  │ JSON Facet  │             │  │
+│   │    │    Index    │  │   Engine    │  │     API     │             │  │
 │   │    │             │  │             │  │             │             │  │
 │   │    │ Alle Daten  │  │ Multi-Dim.  │  │  In-Solr    │             │  │
 │   │    │ durchsuchbar│  │ Navigation  │  │ Aggregation │             │  │
@@ -193,37 +193,41 @@ Kein Scan. Kein Sort. Kein Group By. **Lookup-Operationen.**
 
 ---
 
-## Streaming Expressions: Ad-hoc Aggregationen ohne Spark
+## JSON Facet API: Ad-hoc Aggregationen ohne Spark
 
-Manchmal brauchst du mehr als Counts. Du willst Summen, Durchschnitte, Top-N Rankings. Dafür hat Solr **Streaming Expressions** – eine unterschätzte Superkraft.
+Manchmal brauchst du mehr als Counts. Du willst Summen, Durchschnitte, Top-N Rankings. Dafür hat Solr die **JSON Facet API** – eine mächtige Aggregations-Engine, die direkt im Suchindex arbeitet.
 
+```json
+{
+  "query": "bezirk:Manhattan AND tageszeit:Abend",
+  "limit": 0,
+  "facet": {
+    "by_zahlungsart": {
+      "type": "terms",
+      "field": "zahlungsart",
+      "facet": {
+        "sum_betrag": "sum(betrag)",
+        "avg_trinkgeld": "avg(trinkgeld)"
+      }
+    }
+  }
+}
 ```
-rollup(
-  search(taxi_collection,
-    q="bezirk:Manhattan AND tageszeit:Abend",
-    fl="zahlungsart,betrag,trinkgeld",
-    sort="zahlungsart asc",
-    qt="/export"
-  ),
-  over="zahlungsart",
-  sum(betrag),
-  avg(trinkgeld),
-  count(*)
-)
-```
 
-Diese Expression:
-1. Streamt alle passenden Dokumente (ohne sie in RAM zu laden)
-2. Aggregiert sie nach Zahlungsart
-3. Berechnet Summe, Durchschnitt und Count
+Diese Query:
+1. Aggregiert per-Shard parallel (jeder Shard berechnet seine Teilergebnisse)
+2. Mergt nur die Ergebnisse am Coordinator (nicht die Rohdaten!)
+3. Berechnet Summe, Durchschnitt und Count in einem Request
 
-**Alles in Solr.** Kein Spark. Keine externe Verarbeitung. Typische Latenz: 100-500ms für Millionen von Dokumenten.
+**Alles in Solr.** Kein Spark. Keine externe Verarbeitung. Typische Latenz: **unter 100ms** für Millionen von Dokumenten – selbst bei 16 Shards.
 
-Streaming Expressions können auch:
-- `top()` – Top-N Rankings
-- `unique()` – Distinct Values
-- `innerJoin()`, `leftOuterJoin()` – Joins zwischen Collections
-- `classify()` – Einfache ML-Klassifikation
+Die JSON Facet API kann auch:
+- **Nested Facets** – Verschachtelte Gruppierungen (z.B. Top-Routen: Pickup → Dropoff → Summe)
+- **Statistical Functions** – `sum()`, `avg()`, `min()`, `max()`, `percentile()`
+- **Range Facets** – Zeitintervalle, Preis-Buckets
+- **Filter Queries** – Inline-Filter pro Sub-Facet
+
+> **Warum nicht Streaming Expressions?** Solr bietet auch Streaming Expressions (`/stream` Handler), die alle Rohdaten über den `/export` Handler streamen. Diese skalieren jedoch schlecht bei vielen Shards: Ein einzelner Coordinator muss alle Streams zusammenführen – ein O(n)-Bottleneck. Bei 16 Shards kommen Streaming Expressions unter Contention zum Stillstand. Die JSON Facet API aggregiert dagegen per-Shard und überträgt nur Ergebnisse – sie skaliert linear mit der Shard-Anzahl.
 
 Für 80% der Analytics-Anfragen brauchst du Spark gar nicht.
 
@@ -242,26 +246,27 @@ Aber es gibt Grenzen. Wenn du brauchst:
 
 ### Der Trick: Paralleles Shard-Loading via /export
 
-Hier passiert die eigentliche Magie. Statt alle Daten über einen einzelnen Solr-Node zu ziehen, **lädt jeder Spark Executor direkt von seinem lokalen Shard**:
+Hier passiert die eigentliche Magie. Statt alle Daten über einen einzelnen Solr-Node zu ziehen, **ruft jeder Spark Executor seinen zugewiesenen Shard direkt per Hostname ab**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  PARALLELES LESEN: Jeder Executor → Lokaler Shard               │
+│  PARALLELER SHARD-ZUGRIFF: Jeder Executor → Direkt zum Shard    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. Spark holt Shard→Node Mapping via CLUSTERSTATUS API        │
-│     → shard1: node1, shard2: node2, shard3: node3, shard4: node4│
+│     → shard1: node1, shard2: node2, ...  (16 Shards, 4 Nodes)  │
 │                                                                 │
 │  2. Shards werden als RDD parallelisiert (1 Partition/Shard)   │
 │                                                                 │
-│  3. Jeder Executor ruft /export auf SEINEM lokalen Shard:      │
+│  3. Jeder Executor ruft /export direkt auf dem Shard-Node:     │
 │                                                                 │
-│     Executor 1 ──► node1:8983/solr/core_shard1/export ──┐      │
-│     Executor 2 ──► node2:8983/solr/core_shard2/export ──┼──► RDD│
-│     Executor 3 ──► node3:8983/solr/core_shard3/export ──┤      │
-│     Executor 4 ──► node4:8983/solr/core_shard4/export ──┘      │
+│     Executor 1 ──► node1:8983/solr/core_shard1/export  ──┐     │
+│     Executor 2 ──► node2:8983/solr/core_shard5/export  ──┤     │
+│     Executor 3 ──► node3:8983/solr/core_shard9/export  ──┼──► RDD
+│     Executor 4 ──► node4:8983/solr/core_shard13/export ──┤     │
+│     ...          (16 Shards parallel über 4 Nodes)        ──┘     │
 │                                                                 │
-│  Ergebnis: 4x paralleler I/O, kein Single-Node-Bottleneck!     │
+│  Ergebnis: 16x paralleler I/O, kein Single-Node-Bottleneck!    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -272,19 +277,19 @@ Hier passiert die eigentliche Magie. Statt alle Daten über einen einzelnen Solr
 | Naiv: `/export` an Collection | ~500k Docs/s | Ein Node sammelt von allen Shards |
 | **Parallel: `/export` pro Shard** | ~2M Docs/s | Kein Bottleneck, lineares Scaling |
 
-Der `/export` Handler ist dafür perfekt: Er streamt alle Ergebnisse sortiert, nutzt DocValues (kein Heap-Verbrauch), und arbeitet auf dem **lokalen Core** ohne Netzwerk-Overhead.
+Der `/export` Handler ist dafür perfekt: Er streamt alle Ergebnisse sortiert, nutzt DocValues (kein Heap-Verbrauch), und umgeht den SolrCloud Router – jeder Shard wird direkt per Hostname angesprochen.
 
-### Das Pattern: Schreiben und Lesen symmetrisch
+### Das Pattern: Schreiben und Lesen parallelisiert
 
 ```
 SCHREIBEN (Import):
-  Executor → 127.0.0.1:8983 → SolrCloud routet zu Shard
+  Executor → Round-Robin über Solr-Nodes → SolrCloud routet zu Shard
 
-LESEN (Export):  
+LESEN (Export):
   Executor → node:8983/core_shardN/export → Direkt vom Shard
 ```
 
-Beide Richtungen nutzen Data Locality. Das ist der Kern dieser Architektur.
+Beide Richtungen verteilen die Last über alle Nodes. Kein einzelner Node wird zum Bottleneck.
 
 ### Fokussierte Daten, schnelle Analyse
 
@@ -349,13 +354,13 @@ Lass mich den kompletten Flow visualisieren:
 │                                                                           │
 │     "2.847.293 Transaktionen"                                             │
 │                                                                           │
-│     Streaming Expression: Umsatz pro Monat                                │
+│     JSON Facet API: Umsatz pro Monat                                      │
 │                                                                           │
 │     Jan: €4.2M  │ Apr: €5.1M │ Jul: €3.8M │ Okt: €6.2M                    │
 │     Feb: €3.9M  │ Mai: €5.5M │ Aug: €4.1M │ Nov: €5.8M                    │
 │     Mär: €4.5M  │ Jun: €4.9M │ Sep: €5.3M │ Dez: €7.1M                    │
 │                                                                           │
-│  ⏱️ Aggregation: 180ms                                                    │
+│  ⏱️ Aggregation: 45ms                                                    │
 │                                                                           │
 │  User denkt: "Interessant – warum der Einbruch im Juli?"                  │
 │                                                                           │
@@ -390,14 +395,14 @@ Lass mich den kompletten Flow visualisieren:
 
 ## Die vier Säulen im Detail
 
-| Säule | Technologie | Aufgabe | Latenz | Data Locality |
-|-------|-------------|---------|--------|---------------|
-| **1. Import** | Spark → lokaler Solr | Paralleler Push, SolrCloud routet | Minuten | Executor → 127.0.0.1 |
-| **2. Facetten** | Solr Facetten + Tag/Exclude | Multi-Select Navigation | <50ms | Distributed |
-| **3. Aggregation** | Streaming Expressions | Summen, Rankings ohne Spark | 100-500ms | Distributed |
-| **4. Deep Analytics** | Spark via /export | ML, Korrelationen, Statistik | Sekunden | Executor → lokaler Shard |
+| Säule | Technologie | Aufgabe | Latenz | Parallelisierung |
+|-------|-------------|---------|--------|------------------|
+| **1. Import** | Spark → Solr Round-Robin | Paralleler Push, SolrCloud routet | Minuten | Executor → Round-Robin über Nodes |
+| **2. Facetten** | Solr Facetten + Tag/Exclude | Multi-Select Navigation | <50ms | Distributed per-Shard |
+| **3. Aggregation** | JSON Facet API | Summen, Rankings ohne Spark | <100ms | Aggregation per-Shard, nur Ergebnisse zum Coordinator |
+| **4. Deep Analytics** | Spark via /export | ML, Korrelationen, Statistik | Sekunden | Executor → direkt zum Shard per Hostname |
 
-**Der Trick:** Sowohl Import als auch Export nutzen Data Locality. Kein zentraler Bottleneck.
+**Der Trick:** Import, Facetten und Export verteilen die Last über alle Nodes. Kein zentraler Bottleneck.
 
 ---
 
@@ -426,7 +431,7 @@ Ich will fair sein. Diese Architektur ist nicht für alles optimal. Hier der ehr
 - Mehr Enterprise-Features
 
 **Warum ich Solr bevorzuge:**
-- Streaming Expressions sind mächtiger als Elasticsearch Aggregations
+- JSON Facet API mit nested Facets ist extrem ausdrucksstark
 - Einfacher zu betreiben (kein X-Pack Chaos)
 - Solr Cloud ist battle-tested seit über 15 Jahren
 
@@ -461,31 +466,33 @@ Ich will fair sein. Diese Architektur ist nicht für alles optimal. Hier der ehr
 
 Die vollständige Implementierung liegt im Repository. Hier die Kernideen:
 
-### 1. Import: Executor → Lokaler Solr als Entry Point
+### 1. Import: Round-Robin über alle Solr-Nodes
 
 ```python
-# Jeder Executor schreibt an 127.0.0.1 (lokaler Solr)
-url = f"http://127.0.0.1:8983/solr/{collection}/update"
+# Jeder Executor verteilt Writes per Round-Robin über alle Solr-Nodes
+nodes = ["node1", "node2", "node3", "node4"]
+target_node = nodes[partition_index % len(nodes)]
+url = f"http://{target_node}:8983/solr/{collection}/update"
 requests.post(url, json=batch)
 # → SolrCloud routet automatisch zum richtigen Shard
 ```
 
-**Warum:** Spart den ersten Netzwerk-Hop. Bei 4 Nodes werden ~75% weitergeleitet, aber der lokale Entry Point ist trotzdem schneller als ein zentraler.
+**Warum:** Verteilt die Write-Last gleichmäßig über den gesamten Cluster. SolrCloud routet jedes Dokument anhand seiner ID zum richtigen Shard – egal über welchen Node es eingeht.
 
-### 2. Export: Executor → Direkt zum lokalen Shard
+### 2. Export: Executor → Direkt zum Shard per Hostname
 
 ```python
 # Shard-Mapping holen
-shard_info = get_shard_info(collection)  
+shard_info = get_shard_info(collection)
 # → [{'node': 'node1', 'core': 'collection_shard1_replica'}, ...]
 
-# Parallel von allen Shards laden
+# Parallel von allen Shards laden (16 Shards über 4 Nodes)
 for shard in shard_info:
     url = f"http://{shard['node']}:8983/solr/{shard['core']}/export"
-    # → Jeder Executor ruft SEINEN lokalen Shard ab
+    # → Jeder Executor greift direkt auf seinen zugewiesenen Shard zu
 ```
 
-**Warum:** Kein Single-Node-Bottleneck. 4x paralleler I/O.
+**Warum:** Kein Single-Node-Bottleneck. 16x paralleler I/O über 4 Nodes.
 
 ### 3. Facetten mit Tag/Exclude
 
@@ -501,19 +508,26 @@ params = {
 
 **Warum:** Ermöglicht Mehrfachauswahl ohne dass Facetten-Werte verschwinden.
 
-### 4. Streaming Expressions für In-Solr Aggregation
+### 4. JSON Facet API für In-Solr Aggregation
 
 ```python
-expr = f'''
-rollup(
-  search({collection}, q="{query}", fl="{fields}", sort="{sort}", qt="/export"),
-  over="{group_by}",
-  sum(amount), avg(amount), count(*)
-)
-'''
+result = requests.post(f"http://{solr_host}/solr/{collection}/query", json={
+    "query": query,
+    "limit": 0,
+    "facet": {
+        "by_group": {
+            "type": "terms",
+            "field": group_by,
+            "facet": {
+                "sum_amount": "sum(amount)",
+                "avg_amount": "avg(amount)"
+            }
+        }
+    }
+})
 ```
 
-**Warum:** 80% der Aggregationen brauchen kein Spark. Latenz: 100-500ms statt Sekunden.
+**Warum:** 80% der Aggregationen brauchen kein Spark. Latenz: unter 100ms statt Sekunden. Skaliert linear mit der Shard-Anzahl, da jeder Shard seine Teilergebnisse berechnet.
 
 ---
 
@@ -562,7 +576,7 @@ Diese Architektur liefert das. Seit 2010. Ohne Vendor Lock-in. Auf jedem Cluster
 
 ---
 
-*Dieser Artikel basiert auf einem realen Setup: 5 Intel NUCs, Solr Cloud mit 4 Nodes, Spark mit 4 Workers, ~6 Millionen NYC Taxi-Fahrten als Demo-Datensatz. Alles Open Source. Alles reproduzierbar.*
+*Dieser Artikel basiert auf einem realen Setup: 5 Intel NUCs, Solr Cloud mit 4 Nodes (16 Shards), Spark mit 5 Workers, ~6 Millionen NYC Taxi-Fahrten als Demo-Datensatz. Alles Open Source. Alles reproduzierbar.*
 
 ---
 

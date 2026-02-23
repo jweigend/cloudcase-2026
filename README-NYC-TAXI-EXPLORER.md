@@ -110,15 +110,15 @@ Die Rohdaten sind öffentlich verfügbar – wir haben sie "nur" durchsuchbar un
 
 Diese App kombiniert zwei mächtige Technologien:
 
-**Apache Solr** für blitzschnelle Facetten
-→ Jeder Klick löst eine Abfrage auf 6M Dokumente aus
-→ Antwort in unter 50 Millisekunden
+**Apache Solr** für blitzschnelle Facetten & Aggregationen
+→ Jeder Klick löst eine Abfrage auf 6M Dokumente aus (16 Shards, 4 Server)
+→ Facetten in unter 50ms, Aggregationen via JSON Facet API in unter 100ms
 
 **Apache Spark** für die Route-Analyse
-→ Lädt Daten parallel von 4 Servern
+→ Lädt Daten parallel von 16 Shards über 4 Server
 → Berechnet den Score über Millionen von Fahrten
 
-Das Geheimnis: **Solr navigiert, Spark analysiert.** 
+Das Geheimnis: **Solr navigiert, Spark analysiert.**
 Du filterst dich durch bis zur interessanten Teilmenge – und dann rechnet Spark.
 
 ---
