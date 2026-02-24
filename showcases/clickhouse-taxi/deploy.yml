@@ -1,0 +1,93 @@
+---
+# Showcase: ClickHouse + NYC-Taxi Analysis
+#
+# Deployt den kompletten Showcase auf dem Cluster:
+# - ClickHouse Server + Keeper (node1-4)
+# - JupyterLab mit Demo-Notebook (node0)
+# - Webapp Backend + Frontend (node0)
+# - Grafana Dashboard (node0)
+# - Prometheus Targets fuer ClickHouse Metriken
+#
+# Verwendung:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/clickhouse-taxi/inventory.yml \
+#                    showcases/clickhouse-taxi/deploy.yml
+#
+
+# ============================================================
+# ClickHouse Cluster (Server + Keeper)
+# ============================================================
+- name: Deploy ClickHouse Cluster
+  hosts: clickhouse_server
+  become: true
+  roles:
+    - clickhouse
+
+# ============================================================
+# Warte auf Keeper Quorum
+# ============================================================
+- name: Verify ClickHouse Keeper Quorum
+  hosts: clickhouse_keeper[0]
+  become: true
+  tasks:
+    - name: Wait for Keeper quorum
+      ansible.builtin.shell: |
+        for i in $(seq 1 30); do
+          if echo ruok | nc -w2 localhost {{ clickhouse_keeper_port | default(9181) }} | grep -q imok; then
+            exit 0
+          fi
+          sleep 2
+        done
+        exit 1
+      changed_when: false
+
+# ============================================================
+# Warte auf Cluster-Konnektivitaet
+# ============================================================
+- name: Verify ClickHouse Cluster
+  hosts: clickhouse_server[0]
+  become: true
+  tasks:
+    - name: Wait for all nodes to join cluster
+      ansible.builtin.shell: |
+        clickhouse-client --query "SELECT count() FROM system.clusters WHERE cluster = '{{ clickhouse_cluster_name | default('cloudkoffer') }}'"
+      register: cluster_count
+      retries: 10
+      delay: 5
+      until: cluster_count.stdout | int >= groups['clickhouse_server'] | length
+      changed_when: false
+
+# ============================================================
+# JupyterLab mit Demo-Notebook
+# ============================================================
+- name: Deploy JupyterLab
+  hosts: monitoring
+  become: true
+  vars:
+    jupyter_install_spark: false
+    jupyter_python_packages:
+      - jupyterlab
+      - notebook
+      - clickhouse-connect
+      - pandas
+      - pyarrow
+      - numpy
+      - matplotlib
+      - requests
+    jupyter_notebooks:
+      - { src: "{{ playbook_dir }}/notebooks/00-cluster-dashboard.ipynb.j2", dest: "00-cluster-dashboard.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/01-clickhouse-nyc-taxi.ipynb.j2", dest: "01-clickhouse-nyc-taxi.ipynb" }
+  roles:
+    - jupyter
+
+# ============================================================
+# Webapp (Backend + Frontend)
+# ============================================================
+- import_playbook: webapp-backend.yml
+- import_playbook: webapp-frontend.yml
+
+# ============================================================
+# Grafana Dashboards + Prometheus Targets
+# ============================================================
+- import_playbook: dashboards.yml
+- import_playbook: prometheus-targets.yml

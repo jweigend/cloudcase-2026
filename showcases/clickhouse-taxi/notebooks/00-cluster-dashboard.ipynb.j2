@@ -1,0 +1,228 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Cloudkoffer 2026 - ClickHouse Cluster Dashboard\n",
+        "\n",
+        "Uebersicht aller Services im ClickHouse-Taxi Showcase."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Cluster Nodes\n",
+        "\n",
+        "| Node | IP | Rolle |\n",
+        "|------|-----|-------|\n",
+        "| node0 | 192.168.1.100 | Monitoring, DNS, JupyterLab, Webapp |\n",
+        "| node1 | 192.168.1.101 | ClickHouse Server, Keeper |\n",
+        "| node2 | 192.168.1.102 | ClickHouse Server, Keeper |\n",
+        "| node3 | 192.168.1.103 | ClickHouse Server, Keeper |\n",
+        "| node4 | 192.168.1.104 | ClickHouse Server |"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Service URLs\n",
+        "\n",
+        "### ClickHouse\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **ClickHouse node1** | [http://node1.cloud.local:8123/play](http://node1.cloud.local:8123/play) | SQL Playground |\n",
+        "| **ClickHouse node2** | [http://node2.cloud.local:8123/play](http://node2.cloud.local:8123/play) | SQL Playground |\n",
+        "| **ClickHouse node3** | [http://node3.cloud.local:8123/play](http://node3.cloud.local:8123/play) | SQL Playground |\n",
+        "| **ClickHouse node4** | [http://node4.cloud.local:8123/play](http://node4.cloud.local:8123/play) | SQL Playground |\n",
+        "\n",
+        "### Webapp & Notebooks\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **NYC Taxi Explorer** | [http://node0.cloud.local](http://node0.cloud.local) | Facetten-Explorer (Vue.js) |\n",
+        "| **Backend API** | [http://node0.cloud.local:5001/api/health](http://node0.cloud.local:5001/api/health) | Flask REST API |\n",
+        "| **JupyterLab** | [http://node0.cloud.local:8888](http://node0.cloud.local:8888) | Notebooks |\n",
+        "\n",
+        "### Monitoring\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **Grafana** | [http://node0.cloud.local:3000](http://node0.cloud.local:3000) | Dashboards & Visualisierung |\n",
+        "| **Prometheus** | [http://node0.cloud.local:9090](http://node0.cloud.local:9090) | Metriken & Alerting |"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Cluster Status Check"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import requests\n",
+        "\n",
+        "services = [\n",
+        "    ('ClickHouse node1', 'http://node1.cloud.local:8123/ping'),\n",
+        "    ('ClickHouse node2', 'http://node2.cloud.local:8123/ping'),\n",
+        "    ('ClickHouse node3', 'http://node3.cloud.local:8123/ping'),\n",
+        "    ('ClickHouse node4', 'http://node4.cloud.local:8123/ping'),\n",
+        "    ('Webapp Backend',   'http://node0.cloud.local:5001/api/health'),\n",
+        "    ('Webapp Frontend',  'http://node0.cloud.local/health'),\n",
+        "    ('Grafana',          'http://node0.cloud.local:3000'),\n",
+        "    ('Prometheus',       'http://node0.cloud.local:9090'),\n",
+        "    ('JupyterLab',       'http://node0.cloud.local:8888'),\n",
+        "]\n",
+        "\n",
+        "print('Service Status Check:\\n')\n",
+        "for name, url in services:\n",
+        "    try:\n",
+        "        r = requests.get(url, timeout=3)\n",
+        "        status = 'Online' if r.status_code == 200 else f'HTTP {r.status_code}'\n",
+        "    except requests.exceptions.RequestException:\n",
+        "        status = 'Offline'\n",
+        "    print(f'{name:20} {status}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## ClickHouse Cluster Info"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import clickhouse_connect\n",
+        "\n",
+        "client = clickhouse_connect.get_client(host='node1.cloud.local', port=8123)\n",
+        "\n",
+        "# Cluster-Uebersicht\n",
+        "result = client.query(\"\"\"\n",
+        "    SELECT host_name, host_address, port\n",
+        "    FROM system.clusters\n",
+        "    WHERE cluster = 'cloudkoffer'\n",
+        "    ORDER BY host_name\n",
+        "\"\"\")\n",
+        "\n",
+        "print('ClickHouse Cluster: cloudkoffer')\n",
+        "print('=' * 50)\n",
+        "print(f'Replicas: {len(result.result_rows)}')\n",
+        "print()\n",
+        "for row in result.result_rows:\n",
+        "    print(f'  {row[0]:20} {row[1]}:{row[2]}')\n",
+        "\n",
+        "# Server-Version\n",
+        "ver = client.query('SELECT version()').first_row[0]\n",
+        "print(f'\\nVersion: {ver}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## ClickHouse Keeper Status"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import socket\n",
+        "\n",
+        "keeper_nodes = ['node1', 'node2', 'node3']\n",
+        "\n",
+        "print('ClickHouse Keeper Ensemble')\n",
+        "print('=' * 50)\n",
+        "\n",
+        "for node in keeper_nodes:\n",
+        "    try:\n",
+        "        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n",
+        "        s.settimeout(2)\n",
+        "        s.connect((f'{node}.cloud.local', 9181))\n",
+        "        s.send(b'ruok')\n",
+        "        resp = s.recv(16).decode()\n",
+        "        s.close()\n",
+        "        status = 'OK' if resp == 'imok' else resp\n",
+        "    except Exception as e:\n",
+        "        status = f'Error: {e}'\n",
+        "    print(f'  {node:10} {status}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Datenbank-Uebersicht"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import clickhouse_connect\n",
+        "\n",
+        "client = clickhouse_connect.get_client(host='node1.cloud.local', port=8123)\n",
+        "\n",
+        "# Tabellen\n",
+        "tables = client.query(\"\"\"\n",
+        "    SELECT name, engine, total_rows, formatReadableSize(total_bytes) AS size\n",
+        "    FROM system.tables\n",
+        "    WHERE database = 'default' AND engine != ''\n",
+        "    ORDER BY total_rows DESC\n",
+        "\"\"\")\n",
+        "\n",
+        "print('Tabellen in default:')\n",
+        "print('=' * 60)\n",
+        "print(f'{\"Name\":30} {\"Engine\":25} {\"Rows\":>12} {\"Size\":>10}')\n",
+        "print('-' * 60)\n",
+        "for row in tables.result_rows:\n",
+        "    rows_str = f'{row[2]:,}' if row[2] else '-'\n",
+        "    print(f'{row[0]:30} {row[1]:25} {rows_str:>12} {row[3]:>10}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## Quick Links\n",
+        "\n",
+        "- [NYC Taxi Explorer](http://node0.cloud.local) - Facetten-Suche mit ClickHouse\n",
+        "- [ClickHouse SQL Playground](http://node1.cloud.local:8123/play) - Direkte SQL-Queries\n",
+        "- [Grafana Dashboards](http://node0.cloud.local:3000) - Cluster-Monitoring\n",
+        "- [Prometheus](http://node0.cloud.local:9090) - Metriken"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.12"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 4
+}

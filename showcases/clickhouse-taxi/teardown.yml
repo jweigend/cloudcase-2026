@@ -1,0 +1,178 @@
+---
+# Showcase Teardown: ClickHouse + NYC-Taxi
+#
+# Entfernt alle Showcase-spezifischen Services sauber vom Cluster.
+# Base-Installation (common, dnsmasq, monitoring) bleibt erhalten.
+#
+# Verwendung:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/clickhouse-taxi/inventory.yml \
+#                    showcases/clickhouse-taxi/teardown.yml
+#
+
+# ============================================================
+# Webapp Frontend + nginx entfernen
+# ============================================================
+- name: Remove Webapp Frontend
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Remove nginx webapp site
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/sites-enabled/webapp
+        - /etc/nginx/sites-available/webapp
+      notify: reload nginx
+
+    - name: Remove frontend files
+      file:
+        path: /opt/webapp-frontend
+        state: absent
+
+    - name: Stop and remove nginx
+      apt:
+        name: nginx
+        state: absent
+        purge: true
+      ignore_errors: true
+
+  handlers:
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+      ignore_errors: true
+
+# ============================================================
+# Webapp Backend entfernen
+# ============================================================
+- name: Remove Webapp Backend
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Stop and disable webapp-backend
+      systemd:
+        name: webapp-backend
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove webapp-backend service
+      file:
+        path: /etc/systemd/system/webapp-backend.service
+        state: absent
+
+    - name: Remove backend files
+      file:
+        path: /opt/webapp-backend
+        state: absent
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+# ============================================================
+# JupyterLab entfernen
+# ============================================================
+- name: Remove JupyterLab
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Stop and disable jupyterlab
+      systemd:
+        name: jupyterlab
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove jupyterlab service
+      file:
+        path: /etc/systemd/system/jupyterlab.service
+        state: absent
+
+    - name: Remove Jupyter files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /opt/jupyter
+        - /data/jupyter
+
+# ============================================================
+# ClickHouse Server entfernen
+# ============================================================
+- name: Remove ClickHouse
+  hosts: clickhouse_server
+  become: true
+  tasks:
+    - name: Stop and disable clickhouse-server
+      systemd:
+        name: clickhouse-server
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove ClickHouse packages
+      ansible.builtin.apt:
+        name:
+          - clickhouse-server
+          - clickhouse-client
+          - clickhouse-common-static
+        state: absent
+        purge: true
+      ignore_errors: true
+
+    - name: Remove ClickHouse config and data
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/clickhouse-server
+        - /data/clickhouse
+        - /var/lib/clickhouse
+        - /var/log/clickhouse-server
+
+    - name: Remove ClickHouse apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb https://packages.clickhouse.com/deb stable main"
+        state: absent
+        filename: clickhouse
+      ignore_errors: true
+
+# ============================================================
+# Grafana Dashboards + Prometheus Targets entfernen
+# ============================================================
+- name: Remove Showcase Monitoring
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Remove Grafana dashboards
+      file:
+        path: "/var/lib/grafana/dashboards/{{ item }}"
+        state: absent
+      loop:
+        - clickhouse-dashboard.json
+      notify: restart grafana
+
+    - name: Remove Prometheus showcase targets
+      file:
+        path: /opt/prometheus/targets.d/clickhouse-taxi.yml
+        state: absent
+      notify: reload prometheus
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+  handlers:
+    - name: restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted
+
+    - name: reload prometheus
+      systemd:
+        name: prometheus
+        state: reloaded

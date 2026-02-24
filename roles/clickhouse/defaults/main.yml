@@ -1,0 +1,14 @@
+---
+clickhouse_version: "24.12"
+clickhouse_user: clickhouse
+clickhouse_data_dir: /data/clickhouse
+clickhouse_log_dir: /var/log/clickhouse-server
+clickhouse_config_dir: /etc/clickhouse-server
+clickhouse_http_port: 8123
+clickhouse_native_port: 9000
+clickhouse_interserver_port: 9009
+clickhouse_metrics_port: 9363
+clickhouse_keeper_port: 9181
+clickhouse_keeper_raft_port: 9234
+clickhouse_max_memory_usage_ratio: 0.75
+clickhouse_cluster_name: cloudkoffer

@@ -1,0 +1,111 @@
+---
+# Webapp Backend (Flask + ClickHouse) fuer NYC-Taxi Explorer
+#
+
+- name: Deploy Webapp Backend (Flask + ClickHouse)
+  hosts: monitoring
+  become: true
+  vars:
+    backend_user: cloudadmin
+    backend_home: /opt/webapp-backend
+    backend_port: 5001
+    clickhouse_host: "{{ groups['clickhouse_server'][0] }}.{{ domain }}"
+    clickhouse_port: 8123
+    force_deploy: "{{ force | default(false) | bool }}"
+
+  tasks:
+    - name: Install system dependencies
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+          - python3-dev
+          - build-essential
+        state: present
+        update_cache: yes
+
+    - name: Create backend directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0755'
+      loop:
+        - "{{ backend_home }}"
+        - "{{ backend_home }}/logs"
+
+    - name: Create Python virtual environment
+      command:
+        cmd: python3 -m venv {{ backend_home }}/venv
+        creates: "{{ backend_home }}/venv/bin/activate"
+      become_user: "{{ backend_user }}"
+
+    - name: Install Python packages
+      pip:
+        name:
+          - flask>=3.0.0
+          - flask-cors>=4.0.0
+          - clickhouse-connect>=0.7.0
+          - requests>=2.31.0
+        virtualenv: "{{ backend_home }}/venv"
+        state: present
+      become_user: "{{ backend_user }}"
+
+    - name: Create data directory
+      file:
+        path: "{{ backend_home }}/data"
+        state: directory
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0755'
+
+    - name: Deploy backend services
+      copy:
+        src: "{{ playbook_dir }}/webapp/backend/backend_services.py"
+        dest: "{{ backend_home }}/backend_services.py"
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0644'
+        force: "{{ force_deploy }}"
+      notify: Restart Webapp Backend
+
+    - name: Deploy taxi zones data
+      copy:
+        src: "{{ playbook_dir }}/webapp/backend/data/taxi-zones.json"
+        dest: "{{ backend_home }}/data/taxi-zones.json"
+        owner: "{{ backend_user }}"
+        group: "{{ backend_user }}"
+        mode: '0644'
+        force: "{{ force_deploy }}"
+      notify: Restart Webapp Backend
+
+    - name: Deploy systemd service
+      template:
+        src: "{{ playbook_dir }}/templates/webapp-backend.service.j2"
+        dest: /etc/systemd/system/webapp-backend.service
+        mode: '0644'
+      notify: Restart Webapp Backend
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Webapp Backend
+      systemd:
+        name: webapp-backend
+        enabled: yes
+        state: started
+
+    - name: Allow backend port through firewall
+      ufw:
+        rule: allow
+        port: "{{ backend_port }}"
+        proto: tcp
+      ignore_errors: yes
+
+  handlers:
+    - name: Restart Webapp Backend
+      systemd:
+        name: webapp-backend
+        state: restarted

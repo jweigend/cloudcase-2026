@@ -1,0 +1,169 @@
+{
+  "id": null,
+  "uid": "cloudkoffer-clickhouse",
+  "title": "Cloudkoffer - ClickHouse Cluster",
+  "tags": ["cloudkoffer", "clickhouse"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(ClickHouseMetrics_Query, instance)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Queries / Sekunde",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(ClickHouseProfileEvents_Query{instance=~\"$instance\"}[1m])",
+          "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Aktive Queries",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(ClickHouseMetrics_Query{instance=~\"$instance\"})",
+          "legendFormat": "Queries"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "ClickHouseMetrics_MemoryTracking{instance=~\"$instance\"}",
+          "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Inserted Rows / Sekunde",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "rows/s",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(ClickHouseProfileEvents_InsertedRows{instance=~\"$instance\"}[1m])",
+          "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Selected Rows / Sekunde",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "rows/s",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(ClickHouseProfileEvents_SelectedRows{instance=~\"$instance\"}[1m])",
+          "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "MergeTree Disk Usage",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "ClickHouseAsyncMetrics_TotalBytesOfMergeTreeTables{instance=~\"$instance\"}",
+          "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Aktive Merges",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "ClickHouseMetrics_Merge{instance=~\"$instance\"}",
+          "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+        }
+      ]
+    }
+  ]
+}

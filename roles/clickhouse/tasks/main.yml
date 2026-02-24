@@ -1,0 +1,138 @@
+---
+# ClickHouse Installation Role
+# Handles: apt repo, packages, config, Keeper, systemd service
+
+# ============================================================
+# APT Repository
+# ============================================================
+- name: Install ClickHouse apt key
+  ansible.builtin.apt_key:
+    keyserver: hkp://keyserver.ubuntu.com:80
+    id: 8919F6BD2B48D754
+    state: present
+
+- name: Add ClickHouse apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://packages.clickhouse.com/deb stable main"
+    state: present
+    filename: clickhouse
+
+# ============================================================
+# Pakete installieren
+# ============================================================
+- name: Update apt cache (tolerant)
+  ansible.builtin.shell: apt-get update || true
+  changed_when: false
+
+- name: Install ClickHouse packages
+  ansible.builtin.apt:
+    name:
+      - "clickhouse-server={{ clickhouse_version }}.*"
+      - "clickhouse-client={{ clickhouse_version }}.*"
+      - "clickhouse-common-static={{ clickhouse_version }}.*"
+    state: present
+    update_cache: no
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+# ============================================================
+# Verzeichnisse
+# ============================================================
+- name: Create ClickHouse data directory
+  ansible.builtin.file:
+    path: "{{ clickhouse_data_dir }}"
+    state: directory
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_user }}"
+    mode: '0755'
+
+- name: Create ClickHouse Keeper data directory
+  ansible.builtin.file:
+    path: "{{ clickhouse_data_dir }}/keeper"
+    state: directory
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_user }}"
+    mode: '0755'
+  when: inventory_hostname in groups.get('clickhouse_keeper', [])
+
+# ============================================================
+# Konfiguration
+# ============================================================
+- name: Ensure config.d directory exists
+  ansible.builtin.file:
+    path: "{{ clickhouse_config_dir }}/config.d"
+    state: directory
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_user }}"
+    mode: '0755'
+
+- name: Ensure users.d directory exists
+  ansible.builtin.file:
+    path: "{{ clickhouse_config_dir }}/users.d"
+    state: directory
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_user }}"
+    mode: '0755'
+
+- name: Deploy ClickHouse server config
+  ansible.builtin.template:
+    src: clickhouse-server-config.xml.j2
+    dest: "{{ clickhouse_config_dir }}/config.d/cluster.xml"
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_user }}"
+    mode: '0644'
+  notify: restart clickhouse-server
+
+- name: Deploy ClickHouse users config
+  ansible.builtin.template:
+    src: clickhouse-users.xml.j2
+    dest: "{{ clickhouse_config_dir }}/users.d/users.xml"
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_user }}"
+    mode: '0644'
+  notify: restart clickhouse-server
+
+- name: Deploy ClickHouse Keeper config
+  ansible.builtin.template:
+    src: clickhouse-keeper-config.xml.j2
+    dest: "{{ clickhouse_config_dir }}/config.d/keeper.xml"
+    owner: "{{ clickhouse_user }}"
+    group: "{{ clickhouse_user }}"
+    mode: '0644'
+  when: inventory_hostname in groups.get('clickhouse_keeper', [])
+  notify: restart clickhouse-server
+
+# ============================================================
+# Service starten
+# ============================================================
+- name: Enable and start ClickHouse Server
+  ansible.builtin.systemd:
+    name: clickhouse-server
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+# ============================================================
+# Healthcheck
+# ============================================================
+- name: Wait for ClickHouse HTTP port
+  ansible.builtin.wait_for:
+    port: "{{ clickhouse_http_port }}"
+    timeout: 60
+
+- name: Check ClickHouse status
+  ansible.builtin.uri:
+    url: "http://localhost:{{ clickhouse_http_port }}/ping"
+    return_content: yes
+  register: ch_status
+  changed_when: false
+
+- name: Show ClickHouse status
+  ansible.builtin.debug:
+    msg: "ClickHouse on {{ inventory_hostname }}: {{ ch_status.content }}"
+
+- name: Wait for Keeper to be ready
+  ansible.builtin.wait_for:
+    port: "{{ clickhouse_keeper_port }}"
+    timeout: 30
+  when: inventory_hostname in groups.get('clickhouse_keeper', [])

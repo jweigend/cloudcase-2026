@@ -1,0 +1,29 @@
+[Unit]
+Description=Webapp Backend (Flask + ClickHouse) for NYC-Taxi Explorer API
+After=network.target
+
+[Service]
+Type=simple
+User={{ backend_user }}
+Group={{ backend_user }}
+WorkingDirectory={{ backend_home }}
+
+# Umgebungsvariablen
+Environment="CLICKHOUSE_HOST={{ clickhouse_host }}"
+Environment="CLICKHOUSE_PORT={{ clickhouse_port }}"
+Environment="BACKEND_PORT={{ backend_port }}"
+Environment="DEBUG=false"
+
+ExecStart={{ backend_home }}/venv/bin/python {{ backend_home }}/backend_services.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:{{ backend_home }}/logs/backend.log
+StandardError=append:{{ backend_home }}/logs/backend.log
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

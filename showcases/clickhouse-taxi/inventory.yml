@@ -1,0 +1,33 @@
+---
+# Showcase: ClickHouse + NYC-Taxi
+#
+# Gruppenzuordnung und Versionen fuer diesen Showcase.
+# Wird zusammen mit dem Environment-Inventory verwendet:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/clickhouse-taxi/inventory.yml \
+#                    showcases/clickhouse-taxi/deploy.yml
+#
+
+all:
+  vars:
+    # Software-Versionen
+    clickhouse_version: "24.12"
+
+  children:
+    # ClickHouse Keeper (3 Nodes fuer Raft Quorum)
+    clickhouse_keeper:
+      hosts:
+        node1:
+          keeper_id: 1
+        node2:
+          keeper_id: 2
+        node3:
+          keeper_id: 3
+
+    # ClickHouse Server (4 Nodes)
+    clickhouse_server:
+      hosts:
+        node1: {}
+        node2: {}
+        node3: {}
+        node4: {}

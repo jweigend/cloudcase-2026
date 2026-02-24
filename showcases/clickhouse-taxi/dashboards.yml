@@ -1,0 +1,32 @@
+---
+# Grafana Dashboard fuer den ClickHouse-Taxi Showcase
+#
+
+- name: Deploy Grafana Dashboards
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Wait for Grafana to be ready
+      uri:
+        url: "http://localhost:3000/api/health"
+        method: GET
+        status_code: 200
+      retries: 10
+      delay: 5
+      register: grafana_health
+      until: grafana_health.status == 200
+
+    - name: Deploy ClickHouse Dashboard
+      template:
+        src: "{{ playbook_dir }}/dashboards/clickhouse-dashboard.json.j2"
+        dest: /var/lib/grafana/dashboards/clickhouse-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+  handlers:
+    - name: restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted

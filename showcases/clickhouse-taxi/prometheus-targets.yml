@@ -1,0 +1,38 @@
+---
+# Prometheus Targets fuer den ClickHouse-Taxi Showcase
+#
+# Deployed Scrape-Targets als file_sd_configs nach
+# /opt/prometheus/targets.d/ und laedt Prometheus neu.
+#
+
+- name: Deploy Prometheus Showcase Targets
+  hosts: monitoring
+  become: true
+  vars:
+    prometheus_home: /opt/prometheus
+    prometheus_user: cloudadmin
+  tasks:
+    - name: Deploy showcase scrape targets
+      copy:
+        dest: "{{ prometheus_home }}/targets.d/clickhouse-taxi.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_user }}"
+        mode: '0644'
+        content: |
+          # ClickHouse Server (eingebaute Prometheus-Metriken)
+          - targets:
+          {% for host in groups['clickhouse_server'] | sort %}
+              - '{{ host }}.{{ domain }}:9363'
+          {% endfor %}
+            labels:
+              job: clickhouse
+              showcase: clickhouse-taxi
+      notify: reload prometheus
+
+  handlers:
+    - name: reload prometheus
+      uri:
+        url: "http://localhost:9090/-/reload"
+        method: POST
+        status_code: [200, 204]
+      ignore_errors: true
