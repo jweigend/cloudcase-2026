@@ -1,0 +1,452 @@
+{
+  "id": null,
+    "uid": "cloudkoffer-red",
+    "title": "Cloudkoffer - RED Dashboard (Rate, Errors, Duration)",
+    "tags": ["cloudkoffer", "red", "services"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "query": "label_values(ClickHouseMetrics_Query, instance)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "current": { "selected": true, "text": "All", "value": "$__all" }
+        }
+      ]
+    },
+    "annotations": {
+      "list": []
+    },
+    "panels": [
+      {
+        "id": 100,
+        "title": "📈 ClickHouse Cluster — Rate",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 1,
+        "title": "📊 Queries/s (Total)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 1, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(ClickHouseProfileEvents_Query{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "🔍 SELECT Queries/s",
+        "type": "timeseries",
+        "gridPos": { "x": 6, "y": 1, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(ClickHouseProfileEvents_SelectQuery{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "📥 INSERT Queries/s",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 1, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(ClickHouseProfileEvents_InsertQuery{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "📋 Inserted Rows/s",
+        "type": "timeseries",
+        "gridPos": { "x": 18, "y": 1, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(ClickHouseProfileEvents_InsertedRows{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 200,
+        "title": "❌ ClickHouse Cluster — Errors",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 5,
+        "title": "❌ Failed Queries/s",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 10, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 0.1 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(ClickHouseProfileEvents_FailedQuery{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} Total"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "🔍❌ Failed SELECT / INSERT",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 10, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 0.1 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(ClickHouseProfileEvents_FailedSelectQuery{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} SELECT"
+          },
+          {
+            "expr": "rate(ClickHouseProfileEvents_FailedInsertQuery{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %} INSERT"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "🚫 Rejected Connections",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(ClickHouseProfileEvents_RejectedConnections{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 300,
+        "title": "⏱️ ClickHouse Cluster — Duration / Saturation",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 8,
+        "title": "⚡ Active Queries",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 19, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 10 },
+                { "color": "red", "value": 50 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "ClickHouseMetrics_Query{instance=~\"$instance\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "💾 Memory Tracking",
+        "type": "timeseries",
+        "gridPos": { "x": 6, "y": 19, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "ClickHouseMetrics_MemoryTracking{instance=~\"$instance\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "🔄 Active Merges",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 19, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 5 },
+                { "color": "red", "value": 15 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "ClickHouseMetrics_Merge{instance=~\"$instance\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "📦 Max Part Count / Partition",
+        "type": "timeseries",
+        "gridPos": { "x": 18, "y": 19, "w": 6, "h": 8 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 100 },
+                { "color": "red", "value": 300 }
+              ]
+            },
+            "custom": { "fillOpacity": 20, "lineWidth": 2 }
+          }
+        },
+        "targets": [
+          {
+            "expr": "ClickHouseMetrics_MaxPartCountForPartition{instance=~\"$instance\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "📊 Read Rows/s",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 27, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(ClickHouseProfileEvents_SelectedRows{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "Rows/s"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 13,
+        "title": "💿 MergeTree Disk Usage",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 27, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "purple", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum(ClickHouseAsyncMetrics_TotalBytesOfMergeTreeTables{instance=~\"$instance\"})",
+            "legendFormat": "Total Size"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 14,
+        "title": "🔗 TCP Connections",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 27, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum(ClickHouseMetrics_TCPConnection{instance=~\"$instance\"})",
+            "legendFormat": "TCP"
+          },
+          {
+            "expr": "sum(ClickHouseMetrics_HTTPConnection{instance=~\"$instance\"})",
+            "legendFormat": "HTTP"
+          }
+        ],
+        "options": { "graphMode": "area", "colorMode": "value" }
+      },
+      {
+        "id": 15,
+        "title": "⏱️ Uptime",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 27, "w": 6, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "orange", "value": null },
+                { "color": "green", "value": 3600 }
+              ]
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "ClickHouseAsyncMetrics_Uptime{instance=~\"$instance\"}",
+            "legendFormat": "{% raw %}{{ instance }}{% endraw %}"
+          }
+        ],
+        "options": { "graphMode": "none", "colorMode": "value" }
+      },
+      {
+        "id": 400,
+        "title": "🎯 Service Health",
+        "type": "row",
+        "gridPos": { "x": 0, "y": 31, "w": 24, "h": 1 },
+        "collapsed": false
+      },
+      {
+        "id": 16,
+        "title": "🟢 Prometheus Targets Health",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 32, "w": 24, "h": 4 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]
+            },
+            "mappings": [
+              { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } },
+              { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } }
+            ]
+          }
+        },
+        "targets": [
+          { "expr": "up{job=\"node\"}", "legendFormat": "Node {% raw %}{{ instance }}{% endraw %}" },
+          { "expr": "up{job=\"clickhouse\"}", "legendFormat": "ClickHouse {% raw %}{{ instance }}{% endraw %}" }
+        ],
+        "options": { "graphMode": "none", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      }
+    ]
+}

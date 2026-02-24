@@ -153,6 +153,8 @@
         path: "/var/lib/grafana/dashboards/{{ item }}"
         state: absent
       loop:
+        - use-dashboard.json
+        - red-dashboard.json
         - clickhouse-dashboard.json
       notify: restart grafana
 
