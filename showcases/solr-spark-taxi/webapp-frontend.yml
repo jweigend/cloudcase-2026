@@ -1,0 +1,135 @@
+---
+# Webapp Frontend (Vue.js) fuer NYC-Taxi Explorer
+#
+
+- name: Deploy Webapp Frontend (Vue.js)
+  hosts: monitoring
+  become: true
+  vars:
+    frontend_user: cloudadmin
+    frontend_home: /opt/webapp-frontend
+    frontend_port: 8080
+    backend_url: "http://{{ groups['monitoring'][0] }}.{{ domain }}:5001"
+    solr_url: "http://{{ groups['solr'][0] }}.{{ domain }}:8983"
+    force_deploy: "{{ force | default(false) | bool }}"
+
+  tasks:
+    - name: Install system dependencies
+      apt:
+        name:
+          - nginx
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Install Node.js repository
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    - name: Create frontend directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ frontend_user }}"
+        group: "{{ frontend_user }}"
+        mode: '0755'
+      loop:
+        - "{{ frontend_home }}"
+        - "{{ frontend_home }}/dist"
+
+    - name: Copy webapp source files
+      synchronize:
+        src: "{{ playbook_dir }}/webapp/frontend/"
+        dest: "{{ frontend_home }}/src/"
+        delete: yes
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=dist"
+          - "--exclude=.git"
+      notify: Rebuild and restart frontend
+
+    - name: Deploy production vite config
+      template:
+        src: "{{ playbook_dir }}/templates/vite.config.prod.js.j2"
+        dest: "{{ frontend_home }}/src/vite.config.js"
+        owner: "{{ frontend_user }}"
+        group: "{{ frontend_user }}"
+        mode: '0644'
+        force: "{{ force_deploy }}"
+      notify: Rebuild and restart frontend
+
+    - name: Install npm dependencies
+      command:
+        cmd: npm install
+        chdir: "{{ frontend_home }}/src"
+      become_user: "{{ frontend_user }}"
+      register: npm_install
+      changed_when: "'added' in npm_install.stdout or 'updated' in npm_install.stdout"
+
+    - name: Build production bundle
+      command:
+        cmd: npm run build
+        chdir: "{{ frontend_home }}/src"
+      become_user: "{{ frontend_user }}"
+      changed_when: true
+
+    - name: Copy dist to serving directory
+      shell: |
+        rm -rf {{ frontend_home }}/dist/*
+        cp -r {{ frontend_home }}/src/dist/* {{ frontend_home }}/dist/
+      become_user: "{{ frontend_user }}"
+
+    - name: Deploy nginx configuration
+      template:
+        src: "{{ playbook_dir }}/templates/nginx-webapp.conf.j2"
+        dest: /etc/nginx/sites-available/webapp
+        mode: '0644'
+      notify: Reload nginx
+
+    - name: Enable nginx site
+      file:
+        src: /etc/nginx/sites-available/webapp
+        dest: /etc/nginx/sites-enabled/webapp
+        state: link
+      notify: Reload nginx
+
+    - name: Remove default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
+    - name: Enable and start nginx
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+    - name: Allow HTTP port through firewall
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+      ignore_errors: true
+
+  handlers:
+    - name: Rebuild and restart frontend
+      shell: |
+        cd {{ frontend_home }}/src && npm run build
+        rm -rf {{ frontend_home }}/dist/*
+        cp -r {{ frontend_home }}/src/dist/* {{ frontend_home }}/dist/
+      become_user: "{{ frontend_user }}"
+      notify: Reload nginx
+
+    - name: Reload nginx
+      systemd:
+        name: nginx
+        state: reloaded

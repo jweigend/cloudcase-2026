@@ -1,0 +1,16 @@
+[Unit]
+Description=Apache ZooKeeper
+After=network.target
+
+[Service]
+Type=forking
+User={{ zk_user }}
+Environment="JAVA_HOME={{ java_home }}"
+Environment="ZOO_LOG_DIR={{ zk_data }}"
+ExecStart={{ zk_home }}/bin/zkServer.sh start
+ExecStop={{ zk_home }}/bin/zkServer.sh stop
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

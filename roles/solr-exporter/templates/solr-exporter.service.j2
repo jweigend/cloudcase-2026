@@ -1,0 +1,20 @@
+[Unit]
+Description=Solr Prometheus Exporter
+After=network.target solr.service
+Requires=solr.service
+
+[Service]
+Type=simple
+User={{ solr_exporter_user }}
+Group={{ solr_exporter_user }}
+WorkingDirectory={{ solr_home }}/prometheus-exporter
+ExecStart={{ solr_home }}/prometheus-exporter/bin/solr-exporter \
+  -p {{ solr_exporter_port }} \
+  -z {{ zookeeper_connect }} \
+  -f {{ solr_home }}/prometheus-exporter/conf/solr-exporter-config.xml \
+  -n 8
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

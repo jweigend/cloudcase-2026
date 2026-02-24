@@ -1,0 +1,12 @@
+---
+jupyter_user: cloudadmin
+jupyter_home: /opt/jupyter
+jupyter_data: /data/jupyter
+jupyter_port: 8888
+jupyter_install_spark: true
+spark_home: /opt/spark
+jupyter_python_packages:
+  - jupyterlab
+  - notebook
+jupyter_notebooks: []
+force_notebooks: false

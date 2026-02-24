@@ -1,0 +1,10 @@
+---
+- name: restart spark-master
+  systemd:
+    name: spark-master
+    state: restarted
+
+- name: restart spark-worker
+  systemd:
+    name: spark-worker
+    state: restarted

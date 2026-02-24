@@ -1,0 +1,4 @@
+---
+prometheus_home: /opt/prometheus
+prometheus_data: /data/prometheus
+prometheus_user: cloudadmin

@@ -1,11 +1,14 @@
 # Generierte ISOs
 *.iso
+infrastructure/baremetal/02-create-iso/output/
 baremetal/02-create-iso/output/
 
-# Temporäre Arbeitsverzeichnisse
+# Temporaere Arbeitsverzeichnisse
+infrastructure/baremetal/02-create-iso/work/
 baremetal/02-create-iso/work/
 
-# Generierte Autoinstall Konfiguration (enthält Passwort-Hash)
+# Generierte Autoinstall Konfiguration (enthaelt Passwort-Hash)
+infrastructure/baremetal/01-generate-configs/autoinstall/
 baremetal/01-generate-configs/autoinstall/
 
 # Editor und System
@@ -30,13 +33,13 @@ env/
 ENV/
 
 # Node.js / Webapp
-webapp/node_modules/
-webapp/dist/
-webapp/.vite/
+node_modules/
+dist/
+.vite/
 
 # Office Lock-Dateien
 .~lock.*#
 
-# Tools Output (generierte CSV-Dateien)
-tools/*.csv
+# Tools Output
+*.csv
 tools/java/

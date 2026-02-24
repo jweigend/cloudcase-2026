@@ -1,0 +1,7 @@
+---
+spark_home: /opt/spark
+spark_user: cloudadmin
+spark_master_host: "node0.{{ domain }}"
+spark_master_port: 7077
+spark_worker_memory: 16g
+spark_worker_cores: 4

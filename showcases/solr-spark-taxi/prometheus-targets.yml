@@ -1,0 +1,65 @@
+---
+# Prometheus Targets fuer den Solr-Spark-Taxi Showcase
+#
+# Deployed Scrape-Targets als file_sd_configs nach
+# /opt/prometheus/targets.d/ und laedt Prometheus neu.
+#
+
+- name: Deploy Prometheus Showcase Targets
+  hosts: monitoring
+  become: true
+  vars:
+    prometheus_home: /opt/prometheus
+    prometheus_user: cloudadmin
+  tasks:
+    - name: Deploy showcase scrape targets
+      copy:
+        dest: "{{ prometheus_home }}/targets.d/solr-spark-taxi.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_user }}"
+        mode: '0644'
+        content: |
+          # ZooKeeper Cluster (eingebaute Prometheus-Metriken)
+          - targets:
+          {% for host in groups['zookeeper'] | sort %}
+              - '{{ host }}.{{ domain }}:7070'
+          {% endfor %}
+            labels:
+              job: zookeeper
+              showcase: solr-spark-taxi
+
+          # Solr Cloud (via solr-exporter)
+          - targets:
+              - '{{ groups["solr"][0] }}.{{ domain }}:9854'
+            labels:
+              job: solr
+              showcase: solr-spark-taxi
+
+          # Spark Master
+          - targets:
+              - '{{ groups["spark_master"][0] }}.{{ domain }}:8081'
+            labels:
+              job: spark-master
+              showcase: solr-spark-taxi
+              __metrics_path__: /metrics/master/prometheus/
+
+          # Spark Workers
+          - targets:
+          {% for host in groups['spark_workers'] | sort %}
+          {% if host != groups['spark_master'][0] %}
+              - '{{ host }}.{{ domain }}:8082'
+          {% endif %}
+          {% endfor %}
+            labels:
+              job: spark-worker
+              showcase: solr-spark-taxi
+              __metrics_path__: /metrics/prometheus/
+      notify: reload prometheus
+
+  handlers:
+    - name: reload prometheus
+      uri:
+        url: "http://localhost:9090/-/reload"
+        method: POST
+        status_code: [200, 204]
+      ignore_errors: true

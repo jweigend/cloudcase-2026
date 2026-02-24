@@ -1,0 +1,245 @@
+---
+# Showcase Teardown: Solr + Spark + NYC-Taxi
+#
+# Entfernt alle Showcase-spezifischen Services sauber vom Cluster.
+# Base-Installation (common, dnsmasq, monitoring) bleibt erhalten.
+#
+# Verwendung:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/solr-spark-taxi/inventory.yml \
+#                    showcases/solr-spark-taxi/teardown.yml
+#
+
+# ============================================================
+# Webapp entfernen
+# ============================================================
+- name: Remove Webapp Frontend
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Stop and disable nginx
+      systemd:
+        name: nginx
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove nginx webapp config
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/sites-enabled/webapp
+        - /etc/nginx/sites-available/webapp
+
+    - name: Remove frontend files
+      file:
+        path: /opt/webapp-frontend
+        state: absent
+
+- name: Remove Webapp Backend
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Stop and disable webapp-backend
+      systemd:
+        name: webapp-backend
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove webapp-backend service
+      file:
+        path: /etc/systemd/system/webapp-backend.service
+        state: absent
+
+    - name: Remove backend files
+      file:
+        path: /opt/webapp-backend
+        state: absent
+
+# ============================================================
+# JupyterLab entfernen
+# ============================================================
+- name: Remove JupyterLab
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Stop and disable jupyterlab
+      systemd:
+        name: jupyterlab
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove jupyterlab service
+      file:
+        path: /etc/systemd/system/jupyterlab.service
+        state: absent
+
+    - name: Remove Jupyter files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /opt/jupyter
+        - /data/jupyter
+
+# ============================================================
+# Solr Exporter entfernen
+# ============================================================
+- name: Remove Solr Exporter
+  hosts: solr[0]
+  become: true
+  tasks:
+    - name: Stop and disable solr-exporter
+      systemd:
+        name: solr-exporter
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove solr-exporter service
+      file:
+        path: /etc/systemd/system/solr-exporter.service
+        state: absent
+
+# ============================================================
+# Spark entfernen
+# ============================================================
+- name: Remove Spark Workers
+  hosts: spark_workers
+  become: true
+  tasks:
+    - name: Stop and disable spark-worker
+      systemd:
+        name: spark-worker
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove spark-worker service
+      file:
+        path: /etc/systemd/system/spark-worker.service
+        state: absent
+
+- name: Remove Spark Master
+  hosts: spark_master
+  become: true
+  tasks:
+    - name: Stop and disable spark-master
+      systemd:
+        name: spark-master
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove spark-master service
+      file:
+        path: /etc/systemd/system/spark-master.service
+        state: absent
+
+- name: Remove Spark files
+  hosts: spark
+  become: true
+  tasks:
+    - name: Remove Spark installation and data
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /opt/spark
+        - /data/spark
+
+# ============================================================
+# Solr entfernen
+# ============================================================
+- name: Remove Solr
+  hosts: solr
+  become: true
+  tasks:
+    - name: Stop and disable solr
+      systemd:
+        name: solr
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove solr service
+      file:
+        path: /etc/systemd/system/solr.service
+        state: absent
+
+    - name: Remove Solr files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /opt/solr
+        - /data/solr
+
+# ============================================================
+# ZooKeeper entfernen
+# ============================================================
+- name: Remove ZooKeeper
+  hosts: zookeeper
+  become: true
+  tasks:
+    - name: Stop and disable zookeeper
+      systemd:
+        name: zookeeper
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove zookeeper service
+      file:
+        path: /etc/systemd/system/zookeeper.service
+        state: absent
+
+    - name: Remove ZooKeeper files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /opt/zookeeper
+        - /data/zookeeper
+
+# ============================================================
+# Grafana Dashboards + Prometheus Targets entfernen
+# ============================================================
+- name: Remove Showcase Monitoring
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Remove Grafana dashboards
+      file:
+        path: "/var/lib/grafana/dashboards/{{ item }}"
+        state: absent
+      loop:
+        - use-dashboard.json
+        - red-dashboard.json
+        - spark-dashboard.json
+        - solr-dashboard.json
+      notify: restart grafana
+
+    - name: Remove Prometheus showcase targets
+      file:
+        path: /opt/prometheus/targets.d/solr-spark-taxi.yml
+        state: absent
+      notify: reload prometheus
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+  handlers:
+    - name: restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted
+
+    - name: reload prometheus
+      systemd:
+        name: prometheus
+        state: reloaded

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+export JAVA_HOME="{{ java_home }}"
+export SPARK_HOME="{{ spark_home }}"
+export SPARK_LOG_DIR=/data/spark/logs
+export SPARK_WORKER_DIR=/data/spark/work
+
+export SPARK_MASTER_HOST={{ spark_master_host }}
+export SPARK_MASTER_PORT={{ spark_master_port }}
+
+export SPARK_WORKER_MEMORY={{ spark_worker_memory }}
+export SPARK_WORKER_CORES={{ spark_worker_cores }}

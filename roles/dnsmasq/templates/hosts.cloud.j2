@@ -1,0 +1,4 @@
+{{ edge_router }}   router router.{{ domain }}
+{% for host in groups['all'] | sort %}
+{{ hostvars[host]['ansible_host'] }} {{ host }} {{ host }}.{{ domain }}
+{% endfor %}

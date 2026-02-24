@@ -1,0 +1,19 @@
+[Unit]
+Description=Apache Spark Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User={{ spark_user }}
+Environment="JAVA_HOME={{ java_home }}"
+Environment="SPARK_HOME={{ spark_home }}"
+Environment="SPARK_WORKER_WEBUI_PORT=8082"
+ExecStartPre=/bin/sleep 10
+ExecStart={{ spark_home }}/sbin/start-worker.sh spark://{{ spark_master_host }}:{{ spark_master_port }}
+ExecStop={{ spark_home }}/sbin/stop-worker.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

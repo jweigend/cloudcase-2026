@@ -1,0 +1,190 @@
+---
+# JupyterLab Installation Role
+# Handles: venv, packages, Spark, config, systemd service, notebooks
+
+# ============================================================
+# System-Pakete
+# ============================================================
+- name: Install system dependencies
+  ansible.builtin.apt:
+    name:
+      - python3-pip
+      - python3-venv
+      - python3-dev
+      - build-essential
+    state: present
+    update_cache: yes
+
+# ============================================================
+# Verzeichnisse
+# ============================================================
+- name: Create Jupyter directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ jupyter_user }}"
+    group: "{{ jupyter_user }}"
+    mode: '0755'
+  loop:
+    - "{{ jupyter_home }}"
+    - "{{ jupyter_data }}"
+    - "{{ jupyter_data }}/notebooks"
+    - "/home/{{ jupyter_user }}/.jupyter"
+
+# ============================================================
+# Python Virtual Environment
+# ============================================================
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv {{ jupyter_home }}/venv
+    creates: "{{ jupyter_home }}/venv/bin/activate"
+  become_user: "{{ jupyter_user }}"
+
+- name: Install Python packages
+  ansible.builtin.pip:
+    name: "{{ jupyter_python_packages }}"
+    virtualenv: "{{ jupyter_home }}/venv"
+    state: present
+  become_user: "{{ jupyter_user }}"
+
+# ============================================================
+# Spark Installation (fuer SPARK_HOME)
+# ============================================================
+- name: Check if Spark is installed
+  ansible.builtin.stat:
+    path: "{{ spark_home }}/bin/spark-submit"
+  register: spark_installed
+  when: jupyter_install_spark
+
+- name: Download Spark
+  ansible.builtin.get_url:
+    url: "https://archive.apache.org/dist/spark/spark-{{ spark_version }}/{{ spark_archive }}.tgz"
+    dest: "/tmp/{{ spark_archive }}.tgz"
+    mode: '0644'
+  when: jupyter_install_spark and not spark_installed.stat.exists
+
+- name: Extract Spark
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ spark_archive }}.tgz"
+    dest: "{{ spark_home }}"
+    remote_src: yes
+    extra_opts: ['--strip-components=1']
+    creates: "{{ spark_home }}/bin/spark-submit"
+  when: jupyter_install_spark and not spark_installed.stat.exists
+
+- name: Set Spark directory ownership
+  ansible.builtin.file:
+    path: "{{ spark_home }}"
+    owner: "{{ jupyter_user }}"
+    group: "{{ jupyter_user }}"
+    recurse: yes
+    state: directory
+  when: jupyter_install_spark
+
+# ============================================================
+# Konfiguration
+# ============================================================
+- name: Deploy JupyterLab configuration
+  ansible.builtin.template:
+    src: jupyter_lab_config.py.j2
+    dest: "/home/{{ jupyter_user }}/.jupyter/jupyter_lab_config.py"
+    owner: "{{ jupyter_user }}"
+    group: "{{ jupyter_user }}"
+    mode: '0644'
+
+- name: Deploy systemd service
+  ansible.builtin.template:
+    src: jupyterlab.service.j2
+    dest: /etc/systemd/system/jupyterlab.service
+    mode: '0644'
+  notify: Restart JupyterLab
+
+# ============================================================
+# Service starten
+# ============================================================
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable and start JupyterLab
+  ansible.builtin.systemd:
+    name: jupyterlab
+    enabled: yes
+    state: started
+
+# ============================================================
+# Notebooks (vom Showcase bereitgestellt)
+# ============================================================
+- name: Deploy notebooks
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ jupyter_data }}/notebooks/{{ item.dest }}"
+    owner: "{{ jupyter_user }}"
+    group: "{{ jupyter_user }}"
+    mode: '0644'
+    force: "{{ force_notebooks }}"
+  loop: "{{ jupyter_notebooks }}"
+  tags: notebooks
+  when: jupyter_notebooks | length > 0
+
+- name: Create datasets directory
+  ansible.builtin.file:
+    path: "{{ jupyter_data }}/datasets"
+    state: directory
+    owner: "{{ jupyter_user }}"
+    group: "{{ jupyter_user }}"
+    mode: '0755'
+
+# ============================================================
+# Notebook Scripts (fuer CLI-Ausfuehrung)
+# ============================================================
+- name: Create scripts directory
+  ansible.builtin.file:
+    path: "{{ jupyter_data }}/scripts"
+    state: directory
+    owner: "{{ jupyter_user }}"
+    group: "{{ jupyter_user }}"
+    mode: '0755'
+
+- name: Convert notebooks to Python scripts
+  ansible.builtin.shell: |
+    {{ jupyter_home }}/venv/bin/jupyter nbconvert --to script \
+      --output-dir={{ jupyter_data }}/scripts \
+      {{ jupyter_data }}/notebooks/*.ipynb
+    # nbconvert erzeugt manchmal .txt statt .py
+    for f in {{ jupyter_data }}/scripts/*.txt; do
+      [ -f "$f" ] && mv "$f" "${f%.txt}.py"
+    done
+  become_user: "{{ jupyter_user }}"
+  changed_when: true
+  tags: notebooks
+
+- name: Deploy notebook runner script
+  ansible.builtin.template:
+    src: run-notebooks.sh.j2
+    dest: "{{ jupyter_data }}/scripts/run-notebooks.sh"
+    owner: "{{ jupyter_user }}"
+    group: "{{ jupyter_user }}"
+    mode: '0755'
+
+# ============================================================
+# Healthcheck
+# ============================================================
+- name: Wait for JupyterLab to be ready
+  ansible.builtin.wait_for:
+    port: "{{ jupyter_port }}"
+    delay: 3
+    timeout: 60
+
+- name: Display access information
+  ansible.builtin.debug:
+    msg: |
+      ============================================
+      JupyterLab erfolgreich installiert!
+
+      URL: http://{{ inventory_hostname }}:{{ jupyter_port }}
+      Notebooks: {{ jupyter_data }}/notebooks
+      {% if jupyter_install_spark %}
+      Spark Master: spark://{{ inventory_hostname }}:7077
+      {% endif %}
+      ============================================

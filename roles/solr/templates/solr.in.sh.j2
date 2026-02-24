@@ -1,0 +1,20 @@
+# Solr Cloud Configuration
+
+SOLR_JAVA_HOME="{{ java_home }}"
+SOLR_HOME="{{ solr_data }}"
+SOLR_PORT={{ solr_port }}
+
+# Bind to all interfaces
+SOLR_JETTY_HOST="0.0.0.0"
+
+# ZooKeeper Connection
+ZK_HOST="{% for host in groups['zookeeper'] | sort %}{{ host }}.{{ domain }}:2181{% if not loop.last %},{% endif %}{% endfor %}"
+
+# Memory
+SOLR_JAVA_MEM="-Xms4g -Xmx{{ solr_heap }}"
+
+# Cloud Mode
+SOLR_MODE="solrcloud"
+
+# Hostname
+SOLR_HOST="{{ inventory_hostname }}.{{ domain }}"

@@ -1,0 +1,59 @@
+---
+# Grafana Dashboards fuer den Solr-Spark-Taxi Showcase
+#
+
+- name: Deploy Grafana Dashboards
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Wait for Grafana to be ready
+      uri:
+        url: "http://localhost:3000/api/health"
+        method: GET
+        status_code: 200
+      retries: 10
+      delay: 5
+      register: grafana_health
+      until: grafana_health.status == 200
+
+    - name: Deploy USE Dashboard
+      template:
+        src: "{{ playbook_dir }}/dashboards/use-dashboard.json.j2"
+        dest: /var/lib/grafana/dashboards/use-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+    - name: Deploy RED Dashboard
+      template:
+        src: "{{ playbook_dir }}/dashboards/red-dashboard.json.j2"
+        dest: /var/lib/grafana/dashboards/red-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+    - name: Deploy Spark Dashboard
+      template:
+        src: "{{ playbook_dir }}/dashboards/spark-dashboard.json.j2"
+        dest: /var/lib/grafana/dashboards/spark-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+    - name: Deploy Solr Dashboard
+      template:
+        src: "{{ playbook_dir }}/dashboards/solr-dashboard.json.j2"
+        dest: /var/lib/grafana/dashboards/solr-dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+      notify: restart grafana
+
+  handlers:
+    - name: restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted

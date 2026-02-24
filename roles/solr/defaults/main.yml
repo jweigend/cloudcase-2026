@@ -1,0 +1,5 @@
+solr_home: /opt/solr
+solr_data: /data/solr
+solr_user: cloudadmin
+solr_port: 8983
+solr_heap: 8g

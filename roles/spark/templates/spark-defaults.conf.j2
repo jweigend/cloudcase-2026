@@ -1,0 +1,37 @@
+# Cluster Connection
+spark.master                     spark://{{ spark_master_host }}:{{ spark_master_port }}
+
+# Executor Configuration
+spark.executor.memory            6g
+spark.executor.cores             2
+spark.executor.memoryOverhead    1g
+
+# Driver Configuration
+spark.driver.memory              4g
+spark.driver.cores               2
+spark.driver.maxResultSize       2g
+
+# Default Parallelism
+spark.default.parallelism        30
+spark.sql.shuffle.partitions     30
+
+# Event Logging
+spark.eventLog.enabled           true
+spark.eventLog.dir               file:///data/spark/logs
+spark.history.fs.logDirectory    file:///data/spark/logs
+
+# Serialization
+spark.serializer                 org.apache.spark.serializer.KryoSerializer
+spark.kryoserializer.buffer.max  512m
+
+# SQL/DataFrame Optimizations
+spark.sql.adaptive.enabled       true
+spark.sql.adaptive.coalescePartitions.enabled   true
+
+# Memory Management
+spark.memory.fraction            0.6
+spark.memory.storageFraction     0.5
+
+# Network/Shuffle
+spark.network.timeout            300s
+spark.rpc.askTimeout             300s

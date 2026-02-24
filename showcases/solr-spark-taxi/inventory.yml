@@ -1,0 +1,67 @@
+---
+# Showcase: Solr + Spark + NYC-Taxi
+#
+# Gruppenzuordnung und Versionen fuer diesen Showcase.
+# Wird zusammen mit dem Environment-Inventory verwendet:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/solr-spark-taxi/inventory.yml \
+#                    showcases/solr-spark-taxi/deploy.yml
+#
+
+all:
+  vars:
+    # Software-Versionen
+    zookeeper_version: "3.9.4"
+    solr_version: "9.10.1"
+    spark_version: "3.5.8"
+    spark_scala_version: "2.13"
+    spark_archive: "spark-{{ spark_version }}-bin-hadoop3-scala{{ spark_scala_version }}"
+
+  children:
+    # ZooKeeper Cluster (3 Nodes fuer Quorum)
+    zookeeper:
+      hosts:
+        node1:
+          zk_id: 1
+        node2:
+          zk_id: 2
+        node3:
+          zk_id: 3
+
+    # Solr Cloud (4 Nodes)
+    solr:
+      hosts:
+        node1: {}
+        node2: {}
+        node3: {}
+        node4: {}
+
+    # Spark Master
+    spark_master:
+      hosts:
+        node0: {}
+
+    # Spark Workers
+    spark_workers:
+      vars:
+        spark_worker_memory: 16g
+        spark_worker_cores: 4
+      hosts:
+        node0: {}
+        node1: {}
+        node2: {}
+        node3: {}
+        node4: {}
+
+    # Alle Spark Nodes
+    spark:
+      children:
+        spark_master:
+        spark_workers:
+
+    # Alle Cluster Nodes
+    cluster:
+      children:
+        zookeeper:
+        solr:
+        spark:

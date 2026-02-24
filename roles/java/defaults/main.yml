@@ -1,0 +1,4 @@
+---
+# java role defaults
+
+java_package: openjdk-17-jdk-headless

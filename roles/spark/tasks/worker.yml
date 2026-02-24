@@ -1,0 +1,25 @@
+---
+- name: Create Spark Worker systemd service
+  template:
+    src: spark-worker.service.j2
+    dest: /etc/systemd/system/spark-worker.service
+  notify: restart spark-worker
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start Spark Worker
+  systemd:
+    name: spark-worker
+    enabled: yes
+    state: started
+
+- name: Wait for Spark Worker to start
+  wait_for:
+    port: 8082
+    timeout: 30
+
+- name: Show Spark Worker status
+  debug:
+    msg: "Spark Worker running on {{ inventory_hostname }} (UI: http://{{ inventory_hostname }}:8082)"

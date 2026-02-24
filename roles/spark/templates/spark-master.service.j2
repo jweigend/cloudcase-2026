@@ -1,0 +1,19 @@
+[Unit]
+Description=Apache Spark Master
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User={{ spark_user }}
+ExecStartPre=/bin/sleep 10
+Environment="JAVA_HOME={{ java_home }}"
+Environment="SPARK_HOME={{ spark_home }}"
+Environment="SPARK_MASTER_WEBUI_PORT=8081"
+ExecStart={{ spark_home }}/sbin/start-master.sh
+ExecStop={{ spark_home }}/sbin/stop-master.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

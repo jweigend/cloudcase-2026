@@ -1,0 +1,42 @@
+---
+- name: Aktuelle GRUB Konfiguration sichern
+  copy:
+    src: /etc/default/grub
+    dest: /etc/default/grub.backup
+    remote_src: true
+    force: false
+
+- name: GRUB_CMDLINE_LINUX_DEFAULT setzen
+  lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ grub_cmdline }}"'
+    backup: true
+  register: grub_changed
+
+- name: GRUB aktualisieren
+  command: update-grub
+  when: grub_changed.changed
+
+- name: Aktuelle Kernel-Parameter anzeigen
+  command: cat /proc/cmdline
+  register: cmdline
+  changed_when: false
+
+- name: Status anzeigen
+  debug:
+    msg: |
+      Aktuelle Kernel-Parameter: {{ cmdline.stdout }}
+      {% if grub_changed.changed %}
+      GRUB wurde geaendert - REBOOT ERFORDERLICH!
+      {% else %}
+      GRUB bereits korrekt konfiguriert
+      {% endif %}
+
+- name: Reboot-Hinweis
+  debug:
+    msg: |
+      WICHTIG: Die Aenderungen werden erst nach einem Reboot aktiv!
+      Reboot aller Nodes: ansible all -i inventory.yml -m reboot
+  when: grub_changed.changed
+  run_once: true

@@ -1,0 +1,54 @@
+---
+- name: dnsmasq installieren
+  apt:
+    name: dnsmasq
+    state: present
+    update_cache: true
+
+- name: systemd-resolved stoppen und deaktivieren
+  systemd:
+    name: systemd-resolved
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
+- name: dnsmasq Konfiguration erstellen
+  template:
+    src: local-cache.conf.j2
+    dest: /etc/dnsmasq.d/local-cache.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dnsmasq
+
+- name: Hosts-Datei fuer {{ domain }} erstellen
+  template:
+    src: hosts.cloud.j2
+    dest: /etc/hosts.cloud
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dnsmasq
+
+- name: resolv.conf auf lokalen dnsmasq setzen
+  template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: dnsmasq aktivieren und starten
+  systemd:
+    name: dnsmasq
+    state: started
+    enabled: true
+
+- name: DNS Test - lokale Aufloesung
+  command: dig +short node0.{{ domain }} @127.0.0.1
+  register: dns_test
+  changed_when: false
+
+- name: DNS Test Ergebnis anzeigen
+  debug:
+    msg: "DNS funktioniert: node0.{{ domain }} -> {{ dns_test.stdout }}"

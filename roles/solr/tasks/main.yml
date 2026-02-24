@@ -1,0 +1,85 @@
+---
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ solr_user }}"
+    group: "{{ solr_user }}"
+    mode: '0755'
+  loop:
+    - "{{ solr_home }}"
+    - "{{ solr_data }}"
+
+- name: Check if Solr is already installed
+  stat:
+    path: "{{ solr_home }}/bin/solr"
+  register: solr_installed
+
+- name: Download Solr
+  get_url:
+    url: "https://dlcdn.apache.org/solr/solr/{{ solr_version }}/solr-{{ solr_version }}.tgz"
+    dest: /tmp/solr.tgz
+    mode: '0644'
+    timeout: 300
+  when: not solr_installed.stat.exists
+
+- name: Extract Solr
+  unarchive:
+    src: /tmp/solr.tgz
+    dest: /tmp
+    remote_src: yes
+  when: not solr_installed.stat.exists
+
+- name: Install Solr
+  shell: |
+    cp -r /tmp/solr-{{ solr_version }}/* {{ solr_home }}/
+    chown -R {{ solr_user }}:{{ solr_user }} {{ solr_home }}
+  when: not solr_installed.stat.exists
+
+- name: Clean up download
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/solr.tgz
+    - /tmp/solr-{{ solr_version }}
+  when: not solr_installed.stat.exists
+
+- name: Configure solr.in.sh
+  template:
+    src: solr.in.sh.j2
+    dest: "{{ solr_home }}/bin/solr.in.sh"
+    owner: "{{ solr_user }}"
+    group: "{{ solr_user }}"
+  notify: restart solr
+
+- name: Create systemd service
+  template:
+    src: solr.service.j2
+    dest: /etc/systemd/system/solr.service
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start Solr
+  systemd:
+    name: solr
+    enabled: yes
+    state: started
+
+- name: Wait for Solr to start
+  wait_for:
+    port: "{{ solr_port }}"
+    timeout: 60
+
+- name: Check Solr status
+  uri:
+    url: "http://localhost:{{ solr_port }}/solr/admin/info/system"
+    return_content: yes
+  register: solr_status
+  changed_when: false
+
+- name: Show Solr status
+  debug:
+    msg: "Solr on {{ inventory_hostname }} is running (Solr {{ solr_version }})"

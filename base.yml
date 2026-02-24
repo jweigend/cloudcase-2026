@@ -1,0 +1,38 @@
+---
+# Cloudkoffer Base Installation
+#
+# Installiert die Grundkonfiguration auf allen Nodes:
+# - Kernel-Tuning, Limits, Swap
+# - SSH-Cluster (Key-Verteilung)
+# - GRUB Headless-Modus (Intel NUC)
+# - DNS-Cache (dnsmasq)
+# - Java (OpenJDK)
+# - Node Exporter (Prometheus Metriken)
+# - Prometheus + Grafana (auf Monitoring-Node)
+#
+# Verwendung:
+#   ansible-playbook -i inventory/baremetal/hosts.yml base.yml
+#
+
+- name: Base-Konfiguration auf allen Nodes
+  hosts: all
+  become: true
+  roles:
+    - common
+    - grub-headless
+    - dnsmasq
+    - java
+    - node-exporter
+
+- name: SSH-Cluster (Key-Verteilung)
+  hosts: all
+  become: true
+  roles:
+    - ssh-cluster
+
+- name: Monitoring-Stack auf Monitoring-Node
+  hosts: monitoring
+  become: true
+  roles:
+    - prometheus
+    - grafana

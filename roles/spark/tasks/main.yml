@@ -1,0 +1,98 @@
+---
+- name: Install Python packages for PySpark (Data Locality)
+  apt:
+    name:
+      - python3-pip
+      - python3-pandas
+    state: present
+  become: yes
+
+- name: Install PyArrow for Parquet support
+  pip:
+    name:
+      - pyarrow
+      - requests
+    state: present
+    executable: pip3
+    extra_args: --break-system-packages
+  become: yes
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ spark_user }}"
+    group: "{{ spark_user }}"
+    mode: '0755'
+  loop:
+    - "{{ spark_home }}"
+    - /data/spark
+    - /data/spark/logs
+    - /data/spark/work
+
+- name: Check if Spark is already installed
+  stat:
+    path: "{{ spark_home }}/bin/spark-submit"
+  register: spark_installed
+
+- name: Download Spark
+  get_url:
+    url: "https://dlcdn.apache.org/spark/spark-{{ spark_version }}/{{ spark_archive }}.tgz"
+    dest: /tmp/spark.tgz
+    mode: '0644'
+    timeout: 300
+  when: not spark_installed.stat.exists
+
+- name: Extract Spark
+  unarchive:
+    src: /tmp/spark.tgz
+    dest: /tmp
+    remote_src: yes
+  when: not spark_installed.stat.exists
+
+- name: Install Spark
+  shell: |
+    cp -r /tmp/{{ spark_archive }}/* {{ spark_home }}/
+    chown -R {{ spark_user }}:{{ spark_user }} {{ spark_home }}
+  when: not spark_installed.stat.exists
+
+- name: Clean up download
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/spark.tgz
+    - /tmp/{{ spark_archive }}
+  when: not spark_installed.stat.exists
+
+- name: Configure spark-env.sh
+  template:
+    src: spark-env.sh.j2
+    dest: "{{ spark_home }}/conf/spark-env.sh"
+    owner: "{{ spark_user }}"
+    group: "{{ spark_user }}"
+    mode: '0755'
+  notify: restart spark-master
+
+- name: Configure metrics.properties for Prometheus
+  template:
+    src: metrics.properties.j2
+    dest: "{{ spark_home }}/conf/metrics.properties"
+    owner: "{{ spark_user }}"
+    group: "{{ spark_user }}"
+    mode: '0644'
+
+- name: Configure spark-defaults.conf
+  template:
+    src: spark-defaults.conf.j2
+    dest: "{{ spark_home }}/conf/spark-defaults.conf"
+    owner: "{{ spark_user }}"
+    group: "{{ spark_user }}"
+
+- name: Include master tasks
+  include_tasks: master.yml
+  when: spark_role == 'master'
+
+- name: Include worker tasks
+  include_tasks: worker.yml
+  when: spark_role == 'worker'

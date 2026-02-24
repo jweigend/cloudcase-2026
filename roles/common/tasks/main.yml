@@ -1,0 +1,52 @@
+---
+- name: Kernel-Parameter für Big Data setzen
+  template:
+    src: 99-cloudkoffer-sysctl.conf.j2
+    dest: /etc/sysctl.d/99-cloudkoffer.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: sysctl_config
+
+- name: Sysctl neu laden
+  command: sysctl --system
+  when: sysctl_config.changed
+
+- name: Limits für cloudadmin setzen
+  template:
+    src: 99-cloudkoffer-limits.conf.j2
+    dest: /etc/security/limits.d/99-cloudkoffer.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: PAM limits aktivieren (common-session)
+  lineinfile:
+    path: /etc/pam.d/common-session
+    line: "session required pam_limits.so"
+    state: present
+
+- name: PAM limits aktivieren (common-session-noninteractive)
+  lineinfile:
+    path: /etc/pam.d/common-session-noninteractive
+    line: "session required pam_limits.so"
+    state: present
+
+- name: Swap deaktivieren
+  command: swapoff -a
+  ignore_errors: true
+
+- name: Swap aus fstab entfernen
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+- name: Kernel-Parameter verifizieren
+  command: sysctl vm.swappiness vm.max_map_count fs.file-max net.core.somaxconn
+  register: sysctl_check
+  changed_when: false
+
+- name: Ergebnis anzeigen
+  debug:
+    msg: "{{ sysctl_check.stdout_lines }}"

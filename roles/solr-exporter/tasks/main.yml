@@ -1,0 +1,20 @@
+---
+# Solr Prometheus Exporter - systemd service & startup
+
+- name: Deploy Solr Exporter systemd service
+  ansible.builtin.template:
+    src: solr-exporter.service.j2
+    dest: /etc/systemd/system/solr-exporter.service
+    mode: '0644'
+
+- name: Enable and start Solr Exporter
+  ansible.builtin.systemd:
+    name: solr-exporter
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Wait for Solr Exporter to start
+  ansible.builtin.wait_for:
+    port: "{{ solr_exporter_port }}"
+    timeout: 60

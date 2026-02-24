@@ -1,0 +1,17 @@
+[Unit]
+Description=Apache Solr
+After=network.target
+
+[Service]
+Type=forking
+User={{ solr_user }}
+Environment="SOLR_INCLUDE={{ solr_home }}/bin/solr.in.sh"
+# Wait for ZooKeeper quorum
+ExecStartPre=/bin/bash -c 'for i in {1..30}; do {% for host in groups["zookeeper"] | sort %}echo ruok | nc -w2 {{ host }}.{{ domain }} 2181 | grep -q imok{% if not loop.last %} && {% endif %}{% endfor %} && exit 0; echo "Waiting for ZK quorum... ($i/30)"; sleep 2; done; echo "ZooKeeper not ready after 60s"; exit 1'
+ExecStart={{ solr_home }}/bin/solr start
+ExecStop={{ solr_home }}/bin/solr stop
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

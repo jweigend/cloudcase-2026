@@ -1,0 +1,20 @@
+# Lokaler DNS Cache - forwarding zum EdgeRouter
+server={{ edge_router }}
+cache-size={{ dns_cache_size }}
+
+# Performance Optimierungen
+neg-ttl=30
+min-cache-ttl=60
+dns-forward-max=1000
+
+# Lokale Domain
+local=/{{ domain }}/
+domain={{ domain }}
+expand-hosts
+
+# Nur auf localhost lauschen
+listen-address=127.0.0.1
+bind-interfaces
+
+# Hosts-Datei fuer {{ domain }}
+addn-hosts=/etc/hosts.cloud

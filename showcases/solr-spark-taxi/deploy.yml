@@ -1,0 +1,107 @@
+---
+# Showcase: Solr + Spark + NYC-Taxi Explorer
+#
+# Deployt den kompletten Showcase auf dem Cluster:
+# - ZooKeeper Ensemble (node1-3)
+# - Solr Cloud (node1-4)
+# - Spark Master (node0) + Workers (node0-4)
+# - Solr Prometheus Exporter (node1)
+# - JupyterLab mit Demo-Notebooks (node0)
+# - NYC-Taxi Webapp (node0)
+# - Grafana Dashboards (node0)
+# - Prometheus Targets fuer Showcase-Services
+#
+# Verwendung:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/solr-spark-taxi/inventory.yml \
+#                    showcases/solr-spark-taxi/deploy.yml
+#
+
+# ============================================================
+# ZooKeeper Ensemble
+# ============================================================
+- name: Deploy ZooKeeper Cluster
+  hosts: zookeeper
+  become: true
+  roles:
+    - zookeeper
+
+# ============================================================
+# Solr Cloud
+# ============================================================
+- name: Deploy Solr Cloud
+  hosts: solr
+  become: true
+  roles:
+    - solr
+
+# ============================================================
+# Solr Prometheus Exporter
+# ============================================================
+- name: Deploy Solr Exporter
+  hosts: solr[0]
+  become: true
+  vars:
+    solr_home: /opt/solr
+    zookeeper_connect: "{% for host in groups['zookeeper'] | sort %}{{ host }}.{{ domain }}:2181{% if not loop.last %},{% endif %}{% endfor %}"
+  roles:
+    - solr-exporter
+
+# ============================================================
+# Spark Cluster
+# ============================================================
+- name: Deploy Spark Master
+  hosts: spark_master
+  become: true
+  roles:
+    - role: spark
+      spark_role: master
+
+- name: Deploy Spark Workers
+  hosts: spark_workers
+  become: true
+  roles:
+    - role: spark
+      spark_role: worker
+
+# ============================================================
+# JupyterLab mit Demo-Notebooks
+# ============================================================
+- name: Deploy JupyterLab
+  hosts: monitoring
+  become: true
+  vars:
+    jupyter_python_packages:
+      - jupyterlab
+      - notebook
+      - "pyspark=={{ spark_version }}"
+      - pandas
+      - pyarrow
+      - numpy
+      - matplotlib
+      - pysolr
+      - kazoo
+      - requests
+    jupyter_notebooks:
+      - { src: "{{ playbook_dir }}/notebooks/00-cluster-dashboard.ipynb.j2", dest: "00-cluster-dashboard.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/01-spark-example.ipynb.j2", dest: "01-spark-example.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/02-solr-example.ipynb.j2", dest: "02-solr-example.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/03-nyc-taxi-analysis.ipynb.j2", dest: "03-nyc-taxi-analysis.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/04-lambda-architecture.ipynb.j2", dest: "04-lambda-architecture.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/05-drilldown-architecture.ipynb.j2", dest: "05-drilldown-architecture.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/06-prometheus-timeseries-analysis.ipynb.j2", dest: "06-prometheus-timeseries-analysis.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/07-software-ekg-timeseries-analysis.ipynb.j2", dest: "07-software-ekg-timeseries-analysis.ipynb" }
+  roles:
+    - jupyter
+
+# ============================================================
+# NYC-Taxi Webapp
+# ============================================================
+- import_playbook: webapp-backend.yml
+- import_playbook: webapp-frontend.yml
+
+# ============================================================
+# Grafana Dashboards + Prometheus Targets
+# ============================================================
+- import_playbook: dashboards.yml
+- import_playbook: prometheus-targets.yml
