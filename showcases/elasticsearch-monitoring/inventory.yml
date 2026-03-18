@@ -1,0 +1,31 @@
+---
+# Showcase: Elasticsearch + Monitoring Data
+#
+# Gruppenzuordnung und Versionen fuer diesen Showcase.
+# Wird zusammen mit dem Environment-Inventory verwendet:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/elasticsearch-monitoring/inventory.yml \
+#                    showcases/elasticsearch-monitoring/deploy.yml
+#
+
+all:
+  vars:
+    # Software-Versionen
+    elasticsearch_version: "9.3.0"
+    elasticsearch_exporter_version: "1.8.0"
+
+  children:
+    # Elasticsearch Master-eligible Nodes (3 Nodes fuer Quorum)
+    elasticsearch_master:
+      hosts:
+        node1: {}
+        node2: {}
+        node3: {}
+
+    # Elasticsearch Data Nodes (4 Nodes)
+    elasticsearch_data:
+      hosts:
+        node1: {}
+        node2: {}
+        node3: {}
+        node4: {}

@@ -1,42 +1,53 @@
 ---
-# Showcase Teardown: Solr + Spark + NYC-Taxi
+# Showcase Teardown: Elasticsearch + Monitoring Data
 #
 # Entfernt alle Showcase-spezifischen Services sauber vom Cluster.
 # Base-Installation (common, dnsmasq, monitoring) bleibt erhalten.
 #
 # Verwendung:
 #   ansible-playbook -i inventory/baremetal/hosts.yml \
-#                    -i showcases/solr-spark-taxi/inventory.yml \
-#                    showcases/solr-spark-taxi/teardown.yml
+#                    -i showcases/elasticsearch-monitoring/inventory.yml \
+#                    showcases/elasticsearch-monitoring/teardown.yml
 #
 
 # ============================================================
-# Webapp entfernen
+# Webapp Frontend + nginx entfernen
 # ============================================================
 - name: Remove Webapp Frontend
   hosts: monitoring
   become: true
   tasks:
-    - name: Stop and disable nginx
-      systemd:
-        name: nginx
-        state: stopped
-        enabled: false
-      ignore_errors: true
-
-    - name: Remove nginx webapp config
+    - name: Remove nginx webapp site
       file:
         path: "{{ item }}"
         state: absent
       loop:
         - /etc/nginx/sites-enabled/webapp
         - /etc/nginx/sites-available/webapp
+      notify: reload nginx
 
     - name: Remove frontend files
       file:
         path: /opt/webapp-frontend
         state: absent
 
+    - name: Stop and remove nginx
+      apt:
+        name: nginx
+        state: absent
+        purge: true
+      ignore_errors: true
+
+  handlers:
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+      ignore_errors: true
+
+# ============================================================
+# Webapp Backend entfernen
+# ============================================================
 - name: Remove Webapp Backend
   hosts: monitoring
   become: true
@@ -57,6 +68,10 @@
       file:
         path: /opt/webapp-backend
         state: absent
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
 
 # ============================================================
 # JupyterLab entfernen
@@ -86,124 +101,70 @@
         - /data/jupyter
 
 # ============================================================
-# Solr Exporter entfernen
+# elasticsearch_exporter entfernen
 # ============================================================
-- name: Remove Solr Exporter
-  hosts: solr[0]
+- name: Remove elasticsearch_exporter
+  hosts: elasticsearch_data[0]
   become: true
   tasks:
-    - name: Stop and disable solr-exporter
+    - name: Stop and disable elasticsearch-exporter
       systemd:
-        name: solr-exporter
+        name: elasticsearch-exporter
         state: stopped
         enabled: false
       ignore_errors: true
 
-    - name: Remove solr-exporter service
+    - name: Remove exporter service
       file:
-        path: /etc/systemd/system/solr-exporter.service
+        path: /etc/systemd/system/elasticsearch-exporter.service
         state: absent
 
+    - name: Remove exporter files
+      file:
+        path: /opt/elasticsearch-exporter
+        state: absent
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
 # ============================================================
-# Spark entfernen
+# Elasticsearch entfernen
 # ============================================================
-- name: Remove Spark Workers
-  hosts: spark_workers
+- name: Remove Elasticsearch
+  hosts: elasticsearch_data
   become: true
   tasks:
-    - name: Stop and disable spark-worker
+    - name: Stop and disable elasticsearch
       systemd:
-        name: spark-worker
+        name: elasticsearch
         state: stopped
         enabled: false
       ignore_errors: true
 
-    - name: Remove spark-worker service
-      file:
-        path: /etc/systemd/system/spark-worker.service
+    - name: Remove Elasticsearch packages
+      ansible.builtin.apt:
+        name: elasticsearch
         state: absent
-
-- name: Remove Spark Master
-  hosts: spark_master
-  become: true
-  tasks:
-    - name: Stop and disable spark-master
-      systemd:
-        name: spark-master
-        state: stopped
-        enabled: false
+        purge: true
       ignore_errors: true
 
-    - name: Remove spark-master service
-      file:
-        path: /etc/systemd/system/spark-master.service
-        state: absent
-
-- name: Remove Spark files
-  hosts: spark
-  become: true
-  tasks:
-    - name: Remove Spark installation and data
+    - name: Remove Elasticsearch config and data
       file:
         path: "{{ item }}"
         state: absent
       loop:
-        - /opt/spark
-        - /data/spark
+        - /etc/elasticsearch
+        - /data/elasticsearch
+        - /var/lib/elasticsearch
+        - /var/log/elasticsearch
 
-# ============================================================
-# Solr entfernen
-# ============================================================
-- name: Remove Solr
-  hosts: solr
-  become: true
-  tasks:
-    - name: Stop and disable solr
-      systemd:
-        name: solr
-        state: stopped
-        enabled: false
+    - name: Remove Elasticsearch apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb https://artifacts.elastic.co/packages/9.x/apt stable main"
+        state: absent
+        filename: elasticsearch
       ignore_errors: true
-
-    - name: Remove solr service
-      file:
-        path: /etc/systemd/system/solr.service
-        state: absent
-
-    - name: Remove Solr files
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /opt/solr
-        - /data/solr
-
-# ============================================================
-# ZooKeeper entfernen
-# ============================================================
-- name: Remove ZooKeeper
-  hosts: zookeeper
-  become: true
-  tasks:
-    - name: Stop and disable zookeeper
-      systemd:
-        name: zookeeper
-        state: stopped
-        enabled: false
-      ignore_errors: true
-
-    - name: Remove zookeeper service
-      file:
-        path: /etc/systemd/system/zookeeper.service
-        state: absent
-
-    - name: Remove ZooKeeper files
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /opt/zookeeper
-        - /data/zookeeper
 
 # ============================================================
 # Grafana Dashboards + Prometheus Targets entfernen
@@ -219,13 +180,12 @@
       loop:
         - use-dashboard.json
         - red-dashboard.json
-        - spark-dashboard.json
-        - solr-dashboard.json
+        - elasticsearch-dashboard.json
       notify: restart grafana
 
     - name: Remove Prometheus showcase targets
       file:
-        path: /opt/prometheus/targets.d/solr-spark-taxi.yml
+        path: /opt/prometheus/targets.d/elasticsearch-monitoring.yml
         state: absent
       notify: reload prometheus
 
@@ -238,10 +198,8 @@
       systemd:
         name: grafana-server
         state: restarted
-      ignore_errors: true
 
     - name: reload prometheus
       systemd:
         name: prometheus
         state: reloaded
-      ignore_errors: true

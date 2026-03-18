@@ -1,0 +1,165 @@
+{
+  "id": null,
+  "uid": "cloudkoffer-elasticsearch",
+  "title": "Cloudkoffer - Elasticsearch Cluster",
+  "tags": ["cloudkoffer", "elasticsearch"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Cluster Health Status",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "GREEN", "color": "green" } } },
+            { "type": "value", "options": { "2": { "text": "YELLOW", "color": "yellow" } } },
+            { "type": "value", "options": { "3": { "text": "RED", "color": "red" } } }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "elasticsearch_cluster_health_status{color=\"green\"} * 1 + elasticsearch_cluster_health_status{color=\"yellow\"} * 2 + elasticsearch_cluster_health_status{color=\"red\"} * 3",
+          "legendFormat": "Cluster Status"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Cluster Nodes",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 3 },
+              { "color": "green", "value": 4 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "elasticsearch_cluster_health_number_of_nodes",
+          "legendFormat": "Nodes"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Search Rate (queries/sec)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(elasticsearch_indices_search_query_total[1m])",
+          "legendFormat": "Search Queries"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Indexing Rate (docs/sec)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(elasticsearch_indices_indexing_index_total[1m])",
+          "legendFormat": "Indexed Docs"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Documents Count",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "elasticsearch_indices_docs",
+          "legendFormat": "Total Docs"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "JVM Heap Used",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "elasticsearch_jvm_memory_used_bytes{area=\"heap\"}",
+          "legendFormat": "Heap Used"
+        },
+        {
+          "expr": "elasticsearch_jvm_memory_max_bytes{area=\"heap\"}",
+          "legendFormat": "Heap Max"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Store Size",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "elasticsearch_indices_store_size_bytes",
+          "legendFormat": "Store Size"
+        }
+      ]
+    }
+  ]
+}

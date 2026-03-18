@@ -1,0 +1,10 @@
+---
+elasticsearch_version: "9.3.0"
+elasticsearch_user: elasticsearch
+elasticsearch_data_dir: /data/elasticsearch
+elasticsearch_log_dir: /var/log/elasticsearch
+elasticsearch_config_dir: /etc/elasticsearch
+elasticsearch_http_port: 9200
+elasticsearch_transport_port: 9300
+elasticsearch_cluster_name: cloudkoffer
+elasticsearch_heap_size: 1g

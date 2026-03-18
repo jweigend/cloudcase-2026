@@ -1,0 +1,36 @@
+---
+# Prometheus Targets fuer den Elasticsearch-Monitoring Showcase
+#
+# Deployed Scrape-Targets als file_sd_configs nach
+# /opt/prometheus/targets.d/ und laedt Prometheus neu.
+#
+
+- name: Deploy Prometheus Showcase Targets
+  hosts: monitoring
+  become: true
+  vars:
+    prometheus_home: /opt/prometheus
+    prometheus_user: cloudadmin
+  tasks:
+    - name: Deploy showcase scrape targets
+      copy:
+        dest: "{{ prometheus_home }}/targets.d/elasticsearch-monitoring.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_user }}"
+        mode: '0644'
+        content: |
+          # elasticsearch_exporter (aggregierte Cluster-Metriken)
+          - targets:
+              - '{{ groups['elasticsearch_data'][0] }}.{{ domain }}:9114'
+            labels:
+              job: elasticsearch
+              showcase: elasticsearch-monitoring
+      notify: reload prometheus
+
+  handlers:
+    - name: reload prometheus
+      uri:
+        url: "http://localhost:9090/-/reload"
+        method: POST
+        status_code: [200, 204]
+      ignore_errors: true

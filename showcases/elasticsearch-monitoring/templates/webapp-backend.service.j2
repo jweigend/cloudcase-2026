@@ -1,0 +1,29 @@
+[Unit]
+Description=Webapp Backend (Flask + Elasticsearch) for Monitoring Data Explorer API
+After=network.target
+
+[Service]
+Type=simple
+User={{ backend_user }}
+Group={{ backend_user }}
+WorkingDirectory={{ backend_home }}
+
+# Umgebungsvariablen
+Environment="ES_HOST={{ es_host }}"
+Environment="ES_PORT={{ es_port }}"
+Environment="BACKEND_PORT={{ backend_port }}"
+Environment="DEBUG=false"
+
+ExecStart={{ backend_home }}/venv/bin/python {{ backend_home }}/backend_services.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:{{ backend_home }}/logs/backend.log
+StandardError=append:{{ backend_home }}/logs/backend.log
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,204 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# Cloudkoffer 2026 - Elasticsearch Cluster Dashboard\n",
+        "\n",
+        "Uebersicht aller Services im Elasticsearch-Monitoring Showcase."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Cluster Nodes\n",
+        "\n",
+        "| Node | IP | Rolle |\n",
+        "|------|-----|-------|\n",
+        "| node0 | 192.168.1.100 | Monitoring, DNS, JupyterLab, Webapp |\n",
+        "| node1 | 192.168.1.101 | Elasticsearch (master + data) |\n",
+        "| node2 | 192.168.1.102 | Elasticsearch (master + data) |\n",
+        "| node3 | 192.168.1.103 | Elasticsearch (master + data) |\n",
+        "| node4 | 192.168.1.104 | Elasticsearch (data) |"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Service URLs\n",
+        "\n",
+        "### Elasticsearch\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **ES node1** | [http://node1.cloud.local:9200](http://node1.cloud.local:9200) | REST API |\n",
+        "| **ES node2** | [http://node2.cloud.local:9200](http://node2.cloud.local:9200) | REST API |\n",
+        "| **ES node3** | [http://node3.cloud.local:9200](http://node3.cloud.local:9200) | REST API |\n",
+        "| **ES node4** | [http://node4.cloud.local:9200](http://node4.cloud.local:9200) | REST API |\n",
+        "\n",
+        "### Webapp & Notebooks\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **Monitoring Explorer** | [http://node0.cloud.local](http://node0.cloud.local) | Monitoring Data Explorer (Vue.js) |\n",
+        "| **Backend API** | [http://node0.cloud.local:5001/api/health](http://node0.cloud.local:5001/api/health) | Flask REST API |\n",
+        "| **JupyterLab** | [http://node0.cloud.local:8888](http://node0.cloud.local:8888) | Notebooks |\n",
+        "\n",
+        "### Monitoring\n",
+        "\n",
+        "| Service | URL | Beschreibung |\n",
+        "|---------|-----|-------------|\n",
+        "| **Grafana** | [http://node0.cloud.local:3000](http://node0.cloud.local:3000) | Dashboards & Visualisierung |\n",
+        "| **Prometheus** | [http://node0.cloud.local:9090](http://node0.cloud.local:9090) | Metriken & Alerting |"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Service Status Check"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "import requests\n",
+        "\n",
+        "services = [\n",
+        "    ('ES node1',         'http://node1.cloud.local:9200'),\n",
+        "    ('ES node2',         'http://node2.cloud.local:9200'),\n",
+        "    ('ES node3',         'http://node3.cloud.local:9200'),\n",
+        "    ('ES node4',         'http://node4.cloud.local:9200'),\n",
+        "    ('Webapp Backend',   'http://node0.cloud.local:5001/api/health'),\n",
+        "    ('Webapp Frontend',  'http://node0.cloud.local/health'),\n",
+        "    ('Grafana',          'http://node0.cloud.local:3000'),\n",
+        "    ('Prometheus',       'http://node0.cloud.local:9090'),\n",
+        "    ('JupyterLab',       'http://node0.cloud.local:8888'),\n",
+        "]\n",
+        "\n",
+        "print('Service Status Check:\\n')\n",
+        "for name, url in services:\n",
+        "    try:\n",
+        "        r = requests.get(url, timeout=3)\n",
+        "        status = 'Online' if r.status_code == 200 else f'HTTP {r.status_code}'\n",
+        "    except requests.exceptions.RequestException:\n",
+        "        status = 'Offline'\n",
+        "    print(f'{name:20} {status}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Elasticsearch Cluster Health"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "from elasticsearch import Elasticsearch\n",
+        "\n",
+        "es = Elasticsearch(['http://node1.cloud.local:9200'])\n",
+        "\n",
+        "# Cluster Health\n",
+        "health = es.cluster.health()\n",
+        "print('Elasticsearch Cluster Health')\n",
+        "print('=' * 50)\n",
+        "print(f'Cluster:        {health[\"cluster_name\"]}')\n",
+        "print(f'Status:         {health[\"status\"]}')\n",
+        "print(f'Nodes:          {health[\"number_of_nodes\"]}')\n",
+        "print(f'Data Nodes:     {health[\"number_of_data_nodes\"]}')\n",
+        "print(f'Active Shards:  {health[\"active_shards\"]}')\n",
+        "print(f'Relocating:     {health[\"relocating_shards\"]}')\n",
+        "print(f'Unassigned:     {health[\"unassigned_shards\"]}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Node Info"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "from elasticsearch import Elasticsearch\n",
+        "\n",
+        "es = Elasticsearch(['http://node1.cloud.local:9200'])\n",
+        "\n",
+        "nodes = es.nodes.info()\n",
+        "print('Elasticsearch Nodes')\n",
+        "print('=' * 60)\n",
+        "for node_id, info in nodes['nodes'].items():\n",
+        "    print(f'  {info[\"name\"]:15} {info[\"ip\"]:16} {info[\"version\"]}  roles: {\", \".join(info[\"roles\"])}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Index-Uebersicht"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {},
+      "outputs": [],
+      "source": [
+        "from elasticsearch import Elasticsearch\n",
+        "\n",
+        "es = Elasticsearch(['http://node1.cloud.local:9200'])\n",
+        "\n",
+        "indices = es.cat.indices(format='json', s='index')\n",
+        "print('Indices:')\n",
+        "print('=' * 70)\n",
+        "print(f'{\"Index\":40} {\"Health\":8} {\"Docs\":>10} {\"Size\":>10}')\n",
+        "print('-' * 70)\n",
+        "for idx in indices:\n",
+        "    if not idx['index'].startswith('.'):\n",
+        "        print(f'{idx[\"index\"]:40} {idx[\"health\"]:8} {idx.get(\"docs.count\", \"-\"):>10} {idx.get(\"store.size\", \"-\"):>10}')"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## Quick Links\n",
+        "\n",
+        "- [Monitoring Data Explorer](http://node0.cloud.local) - Log- und Metrik-Analyse\n",
+        "- [Elasticsearch REST API](http://node1.cloud.local:9200) - Direkte API-Queries\n",
+        "- [Grafana Dashboards](http://node0.cloud.local:3000) - Cluster-Monitoring\n",
+        "- [Prometheus](http://node0.cloud.local:9090) - Metriken"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.12"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 4
+}

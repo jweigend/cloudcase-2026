@@ -1,0 +1,107 @@
+---
+# Elasticsearch Installation Role
+# Handles: apt repo, packages, config, systemd service, healthcheck
+
+# ============================================================
+# APT Repository
+# ============================================================
+- name: Install Elasticsearch GPG key
+  ansible.builtin.apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    state: present
+
+- name: Add Elasticsearch apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://artifacts.elastic.co/packages/9.x/apt stable main"
+    state: present
+    filename: elasticsearch
+
+# ============================================================
+# Pakete installieren
+# ============================================================
+- name: Update apt cache (tolerant)
+  ansible.builtin.shell: apt-get update || true
+  changed_when: false
+
+- name: Install Elasticsearch
+  ansible.builtin.apt:
+    name: "elasticsearch={{ elasticsearch_version }}"
+    state: present
+    update_cache: no
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    ES_JAVA_HOME: /usr/share/elasticsearch/jdk
+
+# ============================================================
+# Verzeichnisse
+# ============================================================
+- name: Create Elasticsearch data directory
+  ansible.builtin.file:
+    path: "{{ elasticsearch_data_dir }}"
+    state: directory
+    owner: "{{ elasticsearch_user }}"
+    group: "{{ elasticsearch_user }}"
+    mode: '0755'
+
+# ============================================================
+# Keystore bereinigen (Paket setzt SSL-Passwoerter)
+# ============================================================
+- name: Remove SSL keystore passwords from ES keystore
+  ansible.builtin.shell: |
+    ES_PATH_CONF={{ elasticsearch_config_dir }} /usr/share/elasticsearch/bin/elasticsearch-keystore remove xpack.security.transport.ssl.keystore.secure_password 2>/dev/null || true
+    ES_PATH_CONF={{ elasticsearch_config_dir }} /usr/share/elasticsearch/bin/elasticsearch-keystore remove xpack.security.transport.ssl.truststore.secure_password 2>/dev/null || true
+    ES_PATH_CONF={{ elasticsearch_config_dir }} /usr/share/elasticsearch/bin/elasticsearch-keystore remove xpack.security.http.ssl.keystore.secure_password 2>/dev/null || true
+  changed_when: false
+
+# ============================================================
+# Konfiguration
+# ============================================================
+- name: Deploy Elasticsearch config
+  ansible.builtin.template:
+    src: elasticsearch.yml.j2
+    dest: "{{ elasticsearch_config_dir }}/elasticsearch.yml"
+    owner: root
+    group: "{{ elasticsearch_user }}"
+    mode: '0660'
+  notify: restart elasticsearch
+
+- name: Deploy JVM options override
+  ansible.builtin.template:
+    src: jvm.options.j2
+    dest: "{{ elasticsearch_config_dir }}/jvm.options.d/heap.options"
+    owner: root
+    group: "{{ elasticsearch_user }}"
+    mode: '0660'
+  notify: restart elasticsearch
+
+# ============================================================
+# Service starten
+# ============================================================
+- name: Enable and start Elasticsearch
+  ansible.builtin.systemd:
+    name: elasticsearch
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+# ============================================================
+# Healthcheck
+# ============================================================
+- name: Wait for Elasticsearch HTTP port
+  ansible.builtin.wait_for:
+    port: "{{ elasticsearch_http_port }}"
+    timeout: 90
+
+- name: Check Elasticsearch status
+  ansible.builtin.uri:
+    url: "http://localhost:{{ elasticsearch_http_port }}/"
+    return_content: yes
+  register: es_status
+  changed_when: false
+  retries: 5
+  delay: 5
+  until: es_status.status == 200
+
+- name: Show Elasticsearch status
+  ansible.builtin.debug:
+    msg: "Elasticsearch on {{ inventory_hostname }}: {{ es_status.json.name }} ({{ es_status.json.version.number }})"

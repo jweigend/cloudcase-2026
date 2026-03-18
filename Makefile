@@ -61,6 +61,7 @@ help:
 	@echo "║  ─────────────────────────────────────────────────────────────────────── ║"
 	@echo "║  solr-spark-taxi          NYC-Taxi Explorer (Solr + Spark + Vue.js)      ║"
 	@echo "║  clickhouse-taxi          NYC-Taxi Analysis (ClickHouse OLAP)            ║"
+	@echo "║  elasticsearch-monitoring Monitoring Data Explorer (Elasticsearch)       ║"
 	@echo "║                                                                          ║"
 	@echo "║  Showcase-spezifische Befehle:                                           ║"
 	@printf "║  %-72s║\n" "  cd showcases/$(SHOWCASE) && make help"

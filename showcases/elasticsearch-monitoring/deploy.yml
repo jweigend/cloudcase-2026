@@ -1,0 +1,167 @@
+---
+# Showcase: Elasticsearch + Monitoring Data Explorer
+#
+# Deployt den kompletten Showcase auf dem Cluster:
+# - Elasticsearch Cluster (node1-4)
+# - elasticsearch_exporter fuer Prometheus (node1)
+# - JupyterLab mit Demo-Notebooks (node0)
+# - Webapp Backend + Frontend (node0)
+# - Grafana Dashboards (node0)
+# - Prometheus Targets fuer Elasticsearch Metriken
+#
+# Verwendung:
+#   ansible-playbook -i inventory/baremetal/hosts.yml \
+#                    -i showcases/elasticsearch-monitoring/inventory.yml \
+#                    showcases/elasticsearch-monitoring/deploy.yml
+#
+
+# ============================================================
+# Elasticsearch Cluster
+# ============================================================
+- name: Deploy Elasticsearch Cluster
+  hosts: elasticsearch_data
+  become: true
+  roles:
+    - elasticsearch
+
+# ============================================================
+# Warte auf Cluster-Gesundheit
+# ============================================================
+- name: Verify Elasticsearch Cluster
+  hosts: elasticsearch_data[0]
+  become: true
+  tasks:
+    - name: Wait for cluster health green/yellow
+      ansible.builtin.uri:
+        url: "http://localhost:{{ elasticsearch_http_port | default(9200) }}/_cluster/health?wait_for_status=yellow&timeout=60s"
+        method: GET
+        return_content: yes
+      register: cluster_health
+      retries: 10
+      delay: 5
+      until: cluster_health.status == 200
+
+    - name: Show cluster health
+      ansible.builtin.debug:
+        msg: "Elasticsearch Cluster: {{ cluster_health.json.cluster_name }} - Status: {{ cluster_health.json.status }}, Nodes: {{ cluster_health.json.number_of_nodes }}"
+
+# ============================================================
+# elasticsearch_exporter (Prometheus Metriken)
+# ============================================================
+- name: Deploy elasticsearch_exporter
+  hosts: elasticsearch_data[0]
+  become: true
+  vars:
+    exporter_user: cloudadmin
+    exporter_version: "{{ elasticsearch_exporter_version | default('1.8.0') }}"
+    exporter_port: 9114
+    es_uri: "http://localhost:9200"
+  tasks:
+    - name: Check if exporter already installed
+      ansible.builtin.stat:
+        path: /opt/elasticsearch-exporter/elasticsearch_exporter
+      register: exporter_binary
+
+    - name: Download elasticsearch_exporter
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus-community/elasticsearch_exporter/releases/download/v{{ exporter_version }}/elasticsearch_exporter-{{ exporter_version }}.linux-amd64.tar.gz"
+        dest: /tmp/elasticsearch_exporter.tar.gz
+        mode: '0644'
+      when: not exporter_binary.stat.exists
+
+    - name: Create exporter directory
+      ansible.builtin.file:
+        path: /opt/elasticsearch-exporter
+        state: directory
+        owner: "{{ exporter_user }}"
+        group: "{{ exporter_user }}"
+        mode: '0755'
+
+    - name: Extract elasticsearch_exporter
+      ansible.builtin.unarchive:
+        src: /tmp/elasticsearch_exporter.tar.gz
+        dest: /opt/elasticsearch-exporter
+        remote_src: yes
+        extra_opts: ['--strip-components=1']
+        owner: "{{ exporter_user }}"
+        group: "{{ exporter_user }}"
+      when: not exporter_binary.stat.exists
+
+    - name: Deploy exporter systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/elasticsearch-exporter.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Elasticsearch Exporter for Prometheus
+          After=network.target elasticsearch.service
+
+          [Service]
+          Type=simple
+          User={{ exporter_user }}
+          Group={{ exporter_user }}
+          ExecStart=/opt/elasticsearch-exporter/elasticsearch_exporter \
+            --es.uri={{ es_uri }} \
+            --web.listen-address=:{{ exporter_port }} \
+            --es.all \
+            --es.indices \
+            --es.shards
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart elasticsearch-exporter
+
+    - name: Enable and start exporter
+      ansible.builtin.systemd:
+        name: elasticsearch-exporter
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Wait for exporter port
+      ansible.builtin.wait_for:
+        port: "{{ exporter_port }}"
+        timeout: 30
+
+  handlers:
+    - name: restart elasticsearch-exporter
+      ansible.builtin.systemd:
+        name: elasticsearch-exporter
+        state: restarted
+
+# ============================================================
+# JupyterLab mit Demo-Notebooks
+# ============================================================
+- name: Deploy JupyterLab
+  hosts: monitoring
+  become: true
+  vars:
+    jupyter_install_spark: false
+    jupyter_python_packages:
+      - jupyterlab
+      - notebook
+      - elasticsearch
+      - pandas
+      - pyarrow
+      - numpy
+      - matplotlib
+      - requests
+    jupyter_notebooks:
+      - { src: "{{ playbook_dir }}/notebooks/00-cluster-dashboard.ipynb.j2", dest: "00-cluster-dashboard.ipynb" }
+      - { src: "{{ playbook_dir }}/notebooks/01-elasticsearch-monitoring.ipynb.j2", dest: "01-elasticsearch-monitoring.ipynb" }
+  roles:
+    - jupyter
+
+# ============================================================
+# Webapp (Backend + Frontend)
+# ============================================================
+- import_playbook: webapp-backend.yml
+- import_playbook: webapp-frontend.yml
+
+# ============================================================
+# Grafana Dashboards + Prometheus Targets
+# ============================================================
+- import_playbook: dashboards.yml
+- import_playbook: prometheus-targets.yml
